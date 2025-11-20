@@ -41,66 +41,75 @@ class BasePage(QWidget):
         layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
 
-class WelcomePage(BasePage):
+class MainPage(BasePage):
     def __init__(self, switch):
-        super().__init__("Welcome to Auxora Nanolabs")
+        super().__init__("Auxora NanoLab Control")
 
-        review_btn = QPushButton("Review Data")
-        settings_btn = QPushButton("Adjust NanoLab Settings")
+        # Main horizontal layout for two columns
+        main_layout = QHBoxLayout()
+        main_layout.setSpacing(40)
+        main_layout.setContentsMargins(20, 20, 20, 20)
 
-        for b in (review_btn, settings_btn):
-            style_button(b)
+        # Left Column - Review Data Section
+        data_group = QGroupBox("Review NanoLab Data")
+        data_group.setStyleSheet("font-size: 18px; font-weight: bold;")
+        data_layout = QVBoxLayout()
+        data_layout.setSpacing(20)
+        data_layout.setContentsMargins(20, 25, 20, 25)
 
-        review_btn.clicked.connect(lambda: switch("data"))
-        settings_btn.clicked.connect(lambda: switch("settings_menu"))
+        # Placeholder for data content
+        data_placeholder = QLabel("Data visualization and results will be displayed here.\n\nCurrent status: Connected to NanoLab\nLast update: November 20, 2025 4:16 PM")
+        data_placeholder.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        data_placeholder.setStyleSheet("font-size: 14px; padding: 10px;")
+        data_layout.addWidget(data_placeholder)
 
-        # Set fixed width for buttons to make them consistent
-        review_btn.setFixedWidth(350)
-        settings_btn.setFixedWidth(350)
+        # Data action buttons
+        data_btn_layout = QVBoxLayout()
+        data_btn_layout.setSpacing(10)
+        view_data_btn = QPushButton("View Latest Data")
+        export_data_btn = QPushButton("Export Data")
+        clear_data_btn = QPushButton("Clear Data")
 
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(review_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(settings_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-        layout.setSpacing(20)
+        for btn in (view_data_btn, export_data_btn, clear_data_btn):
+            style_button(btn)
+            data_btn_layout.addWidget(btn)
 
-        self.body.addLayout(layout)
+        data_layout.addLayout(data_btn_layout)
+        data_layout.addStretch()
+        data_group.setLayout(data_layout)
+        main_layout.addWidget(data_group)
 
-
-class SettingsMenuPage(BasePage):
-    def __init__(self, switch):
-        super().__init__("Adjust NanoLab Settings")
+        # Right Column - Adjust Settings Section
+        settings_group = QGroupBox("Adjust NanoLab Settings")
+        settings_group.setStyleSheet("font-size: 18px; font-weight: bold;")
+        settings_layout = QVBoxLayout()
+        settings_layout.setSpacing(20)
+        settings_layout.setContentsMargins(20, 25, 20, 25)
 
         # Connection method dropdown
         connection_layout = QHBoxLayout()
         connection_layout.setSpacing(15)
-        connection_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        connection_label = QLabel("Arduino Connection Method:")
-        connection_label.setStyleSheet("font-size: 15px; font-weight: 600;")
-        
+        connection_label = QLabel("Connection:")
+        connection_label.setStyleSheet("font-size: 14px; font-weight: 600;")
         self.connection_combo = QComboBox()
         self.connection_combo.addItems(["USB Port", "Wireless"])
-        self.connection_combo.setMinimumWidth(200)
         self.connection_combo.setMinimumHeight(40)
-        self.connection_combo.setCursor(Qt.CursorShape.PointingHandCursor)
-        
         connection_layout.addWidget(connection_label)
         connection_layout.addWidget(self.connection_combo)
-        
-        self.body.addLayout(connection_layout)
-        self.body.addSpacing(20)
+        connection_layout.addStretch()
+        settings_layout.addLayout(connection_layout)
 
+        # Grid of setting buttons
         grid = QGridLayout()
         grid.setSpacing(18)
 
         buttons = [
-            ("Data Results", "data"),
-            ("Water Pump Settings", "water"),
+            ("Water Pump", "water"),
             ("LED Settings", "led"),
             ("Fan Settings", "fan"),
-            ("Camera Settings", "camera"),
-            ("Atmospheric Sensor", "sensor"),
+            ("Camera", "camera"),
+            ("Sensor", "sensor"),
+            ("Schedule", "schedule"),
         ]
 
         row, col = 0, 0
@@ -111,1317 +120,558 @@ class SettingsMenuPage(BasePage):
             btn.clicked.connect(lambda _, t=target: switch(t))
             grid.addWidget(btn, row, col)
             col += 1
-            if col == 3:
+            if col == 2:
                 col = 0
                 row += 1
 
-        self.body.addLayout(grid)
+        settings_layout.addLayout(grid)
 
-        send_btn = QPushButton("Send to your NanoLab")
+        # Send to NanoLab button
+        send_btn = QPushButton("Send to NanoLab")
         style_button(send_btn)
         send_btn.setMinimumHeight(45)
-        self.body.addWidget(send_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        settings_layout.addWidget(send_btn)
+        settings_layout.addStretch()
 
+        settings_group.setLayout(settings_layout)
+        main_layout.addWidget(settings_group)
+
+        # Set stretch factors to make columns equal width
+        main_layout.setStretchFactor(data_group, 1)
+        main_layout.setStretchFactor(settings_group, 1)
+
+        self.body.addLayout(main_layout)
+
+class WaterPumpPage(BasePage):
+    def __init__(self, switch):
+        super().__init__("Water Pump Settings")
+
+        # Pump status toggle
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("Pump Status:")
+        status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.pump_toggle = QCheckBox("On/Off")
+        self.pump_toggle.setChecked(True)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.pump_toggle)
+        status_layout.addStretch()
+
+        self.body.addLayout(status_layout)
+
+        # Speed slider
+        speed_layout = QVBoxLayout()
+        speed_layout.setSpacing(10)
+        speed_label = QLabel("Pump Speed: 50%")
+        speed_label.setStyleSheet("font-size: 14px;")
+        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.speed_slider.setMinimum(0)
+        self.speed_slider.setMaximum(100)
+        self.speed_slider.setValue(50)
+        self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.speed_slider.setTickInterval(10)
+        self.speed_slider.valueChanged.connect(lambda v: speed_label.setText(f"Pump Speed: {v}%"))
+
+        speed_layout.addWidget(speed_label)
+        speed_layout.addWidget(self.speed_slider)
+        self.body.addLayout(speed_layout)
+
+        # Flow rate spinbox
+        flow_layout = QHBoxLayout()
+        flow_layout.setSpacing(15)
+        flow_label = QLabel("Flow Rate (L/min):")
+        flow_label.setStyleSheet("font-size: 14px;")
+        self.flow_spinbox = QSpinBox()
+        self.flow_spinbox.setMinimum(0)
+        self.flow_spinbox.setMaximum(20)
+        self.flow_spinbox.setValue(10)
+        flow_layout.addWidget(flow_label)
+        flow_layout.addWidget(self.flow_spinbox)
+        flow_layout.addStretch()
+
+        self.body.addLayout(flow_layout)
+
+        # Duration settings
+        duration_layout = QHBoxLayout()
+        duration_layout.setSpacing(15)
+        duration_label = QLabel("Run Duration (seconds):")
+        duration_label.setStyleSheet("font-size: 14px;")
+        self.duration_spinbox = QSpinBox()
+        self.duration_spinbox.setMinimum(1)
+        self.duration_spinbox.setMaximum(3600)
+        self.duration_spinbox.setValue(300)
+        duration_layout.addWidget(duration_label)
+        duration_layout.addWidget(self.duration_spinbox)
+        duration_layout.addStretch()
+
+        self.body.addLayout(duration_layout)
+
+        # Interval settings
+        interval_layout = QHBoxLayout()
+        interval_layout.setSpacing(15)
+        interval_label = QLabel("Run Interval (minutes):")
+        interval_label.setStyleSheet("font-size: 14px;")
+        self.run_interval_spinbox = QSpinBox()
+        self.run_interval_spinbox.setMinimum(1)
+        self.run_interval_spinbox.setMaximum(1440)
+        self.run_interval_spinbox.setValue(60)
+        interval_layout.addWidget(interval_label)
+        interval_layout.addWidget(self.run_interval_spinbox)
+        interval_layout.addStretch()
+
+        self.body.addLayout(interval_layout)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.apply_water_pump)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
+
+    def apply_water_pump(self):
+        # Placeholder for applying settings
+        print("Water pump settings applied")
 
 class LEDSettingsPage(BasePage):
-    def __init__(self):
+    def __init__(self, switch):
         super().__init__("LED Settings")
 
-        self.current_color = QColor("#ffffff")
-        
-        # Description and color button in top row
-        top_row = QHBoxLayout()
-        top_row.setSpacing(20)
-        
-        desc_label = QLabel("Configure LED color and operation parameters")
-        desc_label.setStyleSheet("font-size: 14px;")
-        
-        # Button to open color picker dialog in top right
-        choose_btn = QPushButton("Choose LED Color")
-        style_button(choose_btn)
-        choose_btn.setFixedWidth(180)
-        choose_btn.clicked.connect(self.open_color_picker)
-        
-        top_row.addWidget(desc_label)
-        top_row.addStretch()
-        top_row.addWidget(choose_btn)
-        
-        self.body.addLayout(top_row)
-        self.body.addSpacing(25)
-        
-        # Container for all sliders with fixed width
-        sliders_container = QWidget()
-        sliders_container.setFixedWidth(650)
-        sliders_layout = QVBoxLayout(sliders_container)
-        sliders_layout.setSpacing(25)
-        
-        # LED Duration Slider
+        # LED status toggle
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("LED Status:")
+        status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.led_toggle = QCheckBox("On/Off")
+        self.led_toggle.setChecked(True)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.led_toggle)
+        status_layout.addStretch()
+
+        self.body.addLayout(status_layout)
+
+        # Brightness slider
+        brightness_layout = QVBoxLayout()
+        brightness_layout.setSpacing(10)
+        brightness_label = QLabel("Brightness: 70%")
+        brightness_label.setStyleSheet("font-size: 14px;")
+        self.brightness_slider = QSlider(Qt.Orientation.Horizontal)
+        self.brightness_slider.setMinimum(0)
+        self.brightness_slider.setMaximum(100)
+        self.brightness_slider.setValue(70)
+        self.brightness_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.brightness_slider.setTickInterval(10)
+        self.brightness_slider.valueChanged.connect(lambda v: brightness_label.setText(f"Brightness: {v}%"))
+
+        brightness_layout.addWidget(brightness_label)
+        brightness_layout.addWidget(self.brightness_slider)
+        self.body.addLayout(brightness_layout)
+
+        # Color picker
+        color_layout = QHBoxLayout()
+        color_layout.setSpacing(15)
+        color_label = QLabel("Select Color:")
+        color_label.setStyleSheet("font-size: 14px;")
+        self.color_display = QLabel()
+        self.color_display.setFixedSize(50, 50)
+        self.color_display.setStyleSheet("background-color: #ffffff; border: 2px solid black;")
+        pick_btn = QPushButton("Pick Color")
+        pick_btn.clicked.connect(self.pick_color)
+        color_layout.addWidget(color_label)
+        color_layout.addWidget(self.color_display)
+        color_layout.addWidget(pick_btn)
+        color_layout.addStretch()
+
+        self.body.addLayout(color_layout)
+
+        # HEX input
+        hex_layout = QHBoxLayout()
+        hex_layout.setSpacing(15)
+        hex_label = QLabel("HEX Color:")
+        hex_label.setStyleSheet("font-size: 14px;")
+        self.hex_input = QLineEdit("#ffffff")
+        self.hex_input.setMaxLength(7)
+        hex_layout.addWidget(hex_label)
+        hex_layout.addWidget(self.hex_input)
+        hex_layout.addStretch()
+
+        self.body.addLayout(hex_layout)
+
+        # Duration settings
         duration_layout = QHBoxLayout()
         duration_layout.setSpacing(15)
-        
-        duration_label = QLabel("Run Duration (hours):")
-        duration_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        duration_label.setFixedWidth(230)
-        
-        self.duration_slider = QSlider(Qt.Orientation.Horizontal)
-        self.duration_slider.setMinimum(1)
-        self.duration_slider.setMaximum(24)
-        self.duration_slider.setValue(12)
-        self.duration_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.duration_slider.setTickInterval(2)
-        
-        self.duration_value_label = QLabel("12")
-        self.duration_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.duration_value_label.setFixedWidth(30)
-        self.duration_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
+        duration_label = QLabel("Run Duration (seconds):")
+        duration_label.setStyleSheet("font-size: 14px;")
+        self.duration_spinbox = QSpinBox()
+        self.duration_spinbox.setMinimum(1)
+        self.duration_spinbox.setMaximum(3600)
+        self.duration_spinbox.setValue(300)
         duration_layout.addWidget(duration_label)
-        duration_layout.addWidget(self.duration_slider)
-        duration_layout.addWidget(self.duration_value_label)
-        
-        sliders_layout.addLayout(duration_layout)
-        
-        # Run Frequency Slider
-        frequency_layout = QHBoxLayout()
-        frequency_layout.setSpacing(15)
-        
-        frequency_label = QLabel("Run Frequency (times/day):")
-        frequency_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        frequency_label.setFixedWidth(230)
-        
-        self.frequency_slider = QSlider(Qt.Orientation.Horizontal)
-        self.frequency_slider.setMinimum(1)
-        self.frequency_slider.setMaximum(24)
-        self.frequency_slider.setValue(2)
-        self.frequency_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.frequency_slider.setTickInterval(2)
-        
-        self.frequency_value_label = QLabel("2")
-        self.frequency_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.frequency_value_label.setFixedWidth(30)
-        self.frequency_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
-        frequency_layout.addWidget(frequency_label)
-        frequency_layout.addWidget(self.frequency_slider)
-        frequency_layout.addWidget(self.frequency_value_label)
-        
-        sliders_layout.addLayout(frequency_layout)
-        
-        # Interval Slider
+        duration_layout.addWidget(self.duration_spinbox)
+        duration_layout.addStretch()
+
+        self.body.addLayout(duration_layout)
+
+        # Interval settings
         interval_layout = QHBoxLayout()
         interval_layout.setSpacing(15)
-        
-        interval_label = QLabel("Interval (hours):")
-        interval_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        interval_label.setFixedWidth(230)
-        
-        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
-        self.interval_slider.setMinimum(1)
-        self.interval_slider.setMaximum(24)
-        self.interval_slider.setValue(12)
-        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.interval_slider.setTickInterval(2)
-        
-        self.interval_value_label = QLabel("12")
-        self.interval_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.interval_value_label.setFixedWidth(30)
-        self.interval_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
+        interval_label = QLabel("Run Interval (minutes):")
+        interval_label.setStyleSheet("font-size: 14px;")
+        self.run_interval_spinbox = QSpinBox()
+        self.run_interval_spinbox.setMinimum(1)
+        self.run_interval_spinbox.setMaximum(1440)
+        self.run_interval_spinbox.setValue(60)
         interval_layout.addWidget(interval_label)
-        interval_layout.addWidget(self.interval_slider)
-        interval_layout.addWidget(self.interval_value_label)
-        
-        sliders_layout.addLayout(interval_layout)
-        
-        self.body.addWidget(sliders_container, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.body.addSpacing(20)
-        
-        # Summary Information
-        self.summary_label = QLabel()
-        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.summary_label.setStyleSheet("font-size: 13px; font-style: italic; color: #666;")
-        self.summary_label.setWordWrap(True)
-        self.update_summary()
-        self.body.addWidget(self.summary_label)
-        self.body.addSpacing(20)
-        
-        # Connect value changes
-        self.duration_slider.valueChanged.connect(self.update_duration_label)
-        self.frequency_slider.valueChanged.connect(self.update_frequency_label)
-        self.interval_slider.valueChanged.connect(self.update_interval_label)
-        
-        self.duration_slider.valueChanged.connect(self.update_summary)
-        self.frequency_slider.valueChanged.connect(self.update_summary)
-        self.interval_slider.valueChanged.connect(self.update_summary)
+        interval_layout.addWidget(self.run_interval_spinbox)
+        interval_layout.addStretch()
 
-        # Save button
-        save_btn = QPushButton("Save to Settings")
-        style_button(save_btn)
-        save_btn.setFixedWidth(250)
-        save_btn.setMinimumHeight(45)
-        save_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; border-radius: 12px;")
-        save_btn.clicked.connect(self.save_settings)
-        self.body.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.body.addLayout(interval_layout)
 
-    def open_color_picker(self):
-        dlg = QColorDialog(self.current_color, self)
-        dlg.setOption(QColorDialog.ColorDialogOption.DontUseNativeDialog, True)
-        dlg.setOption(QColorDialog.ColorDialogOption.ShowAlphaChannel, False)
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.apply_led)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
 
-        if dlg.exec():
-            color = dlg.currentColor()
-            self.current_color = color
-            self.update_ui_color(color)
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
 
-    def update_ui_color(self, color: QColor):
-        hex_code = color.name()
-        self.preview.setStyleSheet(f"background-color: {hex_code}; border-radius: 10px; border: 2px solid #aaa;")
-    
-    def update_duration_label(self, value):
-        self.duration_value_label.setText(str(value))
-    
-    def update_frequency_label(self, value):
-        self.frequency_value_label.setText(str(value))
-    
-    def update_interval_label(self, value):
-        self.interval_value_label.setText(str(value))
-    
-    def update_summary(self):
-        """Update the summary information display"""
-        duration = self.duration_slider.value()
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        
-        total_runtime = duration * frequency
-        summary_text = f"💡 Total daily runtime: {total_runtime} hours  |  ⏱️ Interval: {interval} hours"
-        self.summary_label.setText(summary_text)
-    
-    def save_settings(self):
-        """Save the LED settings"""
-        color = self.current_color.name()
-        duration = self.duration_slider.value()
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        print(f"LED Settings: Color={color}, Duration={duration}h, Frequency={frequency}x/day, Interval={interval}h")
+    def pick_color(self):
+        color = QColorDialog.getColor()
+        if color.isValid():
+            self.color_display.setStyleSheet(f"background-color: {color.name()}; border: 2px solid black;")
+            self.hex_input.setText(color.name().upper())
 
+    def apply_led(self):
+        # Placeholder for applying settings
+        print("LED settings applied")
 
-class CameraSettingsPage(BasePage):
-    def __init__(self):
+class FanSettingsPage(BasePage):
+    def __init__(self, switch):
+        super().__init__("Fan Settings")
+
+        # Fan status toggle
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("Fan Status:")
+        status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.fan_toggle = QCheckBox("On/Off")
+        self.fan_toggle.setChecked(True)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.fan_toggle)
+        status_layout.addStretch()
+
+        self.body.addLayout(status_layout)
+
+        # Speed slider
+        speed_layout = QVBoxLayout()
+        speed_layout.setSpacing(10)
+        speed_label = QLabel("Fan Speed: 75%")
+        speed_label.setStyleSheet("font-size: 14px;")
+        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.speed_slider.setMinimum(0)
+        self.speed_slider.setMaximum(100)
+        self.speed_slider.setValue(75)
+        self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.speed_slider.setTickInterval(10)
+        self.speed_slider.valueChanged.connect(lambda v: speed_label.setText(f"Fan Speed: {v}%"))
+
+        speed_layout.addWidget(speed_label)
+        speed_layout.addWidget(self.speed_slider)
+        self.body.addLayout(speed_layout)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.apply_fan)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
+
+    def apply_fan(self):
+        # Placeholder for applying settings
+        print("Fan settings applied")
+
+class CameraPage(BasePage):
+    def __init__(self, switch):
         super().__init__("Camera Settings")
-        
-        # Description
-        desc_label = QLabel("Configure camera recording parameters")
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        desc_label.setStyleSheet("font-size: 14px;")
-        self.body.addWidget(desc_label)
-        self.body.addSpacing(25)
-        
-        # Container for all sliders with fixed width
-        sliders_container = QWidget()
-        sliders_container.setFixedWidth(650)
-        sliders_layout = QVBoxLayout(sliders_container)
-        sliders_layout.setSpacing(25)
-        
-        # Recording Frequency Slider
-        frequency_layout = QHBoxLayout()
-        frequency_layout.setSpacing(15)
-        
-        frequency_label = QLabel("Recording Frequency (times/day):")
-        frequency_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        frequency_label.setFixedWidth(230)
-        
-        self.frequency_slider = QSlider(Qt.Orientation.Horizontal)
-        self.frequency_slider.setMinimum(1)
-        self.frequency_slider.setMaximum(24)
-        self.frequency_slider.setValue(3)
-        self.frequency_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.frequency_slider.setTickInterval(2)
-        
-        self.frequency_value_label = QLabel("3")
-        self.frequency_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.frequency_value_label.setFixedWidth(30)
-        self.frequency_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
-        frequency_layout.addWidget(frequency_label)
-        frequency_layout.addWidget(self.frequency_slider)
-        frequency_layout.addWidget(self.frequency_value_label)
-        
-        sliders_layout.addLayout(frequency_layout)
-        
-        # Interval Slider
+
+        # Camera status toggle
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("Camera Status:")
+        status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.camera_toggle = QCheckBox("On/Off")
+        self.camera_toggle.setChecked(True)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.camera_toggle)
+        status_layout.addStretch()
+
+        self.body.addLayout(status_layout)
+
+        # Resolution dropdown
+        res_layout = QHBoxLayout()
+        res_layout.setSpacing(15)
+        res_label = QLabel("Resolution:")
+        res_label.setStyleSheet("font-size: 14px;")
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.addItems(["640x480", "1280x720", "1920x1080", "2560x1440"])
+        self.resolution_combo.setCurrentText("1280x720")
+        res_layout.addWidget(res_label)
+        res_layout.addWidget(self.resolution_combo)
+        res_layout.addStretch()
+
+        self.body.addLayout(res_layout)
+
+        # Exposure slider
+        exposure_layout = QVBoxLayout()
+        exposure_layout.setSpacing(10)
+        exposure_label = QLabel("Exposure: 50")
+        exposure_label.setStyleSheet("font-size: 14px;")
+        self.exposure_slider = QSlider(Qt.Orientation.Horizontal)
+        self.exposure_slider.setMinimum(0)
+        self.exposure_slider.setMaximum(100)
+        self.exposure_slider.setValue(50)
+        self.exposure_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.exposure_slider.setTickInterval(10)
+        self.exposure_slider.valueChanged.connect(lambda v: exposure_label.setText(f"Exposure: {v}"))
+
+        exposure_layout.addWidget(exposure_label)
+        exposure_layout.addWidget(self.exposure_slider)
+        self.body.addLayout(exposure_layout)
+
+        # Duration settings
+        duration_layout = QHBoxLayout()
+        duration_layout.setSpacing(15)
+        duration_label = QLabel("Run Duration (seconds):")
+        duration_label.setStyleSheet("font-size: 14px;")
+        self.duration_spinbox = QSpinBox()
+        self.duration_spinbox.setMinimum(1)
+        self.duration_spinbox.setMaximum(3600)
+        self.duration_spinbox.setValue(300)
+        duration_layout.addWidget(duration_label)
+        duration_layout.addWidget(self.duration_spinbox)
+        duration_layout.addStretch()
+
+        self.body.addLayout(duration_layout)
+
+        # Interval settings
         interval_layout = QHBoxLayout()
         interval_layout.setSpacing(15)
-        
-        interval_label = QLabel("Interval (hours):")
-        interval_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        interval_label.setFixedWidth(230)
-        
-        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
-        self.interval_slider.setMinimum(1)
-        self.interval_slider.setMaximum(24)
-        self.interval_slider.setValue(8)
-        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.interval_slider.setTickInterval(2)
-        
-        self.interval_value_label = QLabel("8")
-        self.interval_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.interval_value_label.setFixedWidth(30)
-        self.interval_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
+        interval_label = QLabel("Run Interval (minutes):")
+        interval_label.setStyleSheet("font-size: 14px;")
+        self.run_interval_spinbox = QSpinBox()
+        self.run_interval_spinbox.setMinimum(1)
+        self.run_interval_spinbox.setMaximum(1440)
+        self.run_interval_spinbox.setValue(60)
         interval_layout.addWidget(interval_label)
-        interval_layout.addWidget(self.interval_slider)
-        interval_layout.addWidget(self.interval_value_label)
-        
-        sliders_layout.addLayout(interval_layout)
-        
-        self.body.addWidget(sliders_container, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.body.addSpacing(20)
-        
-        # Summary Information
-        self.summary_label = QLabel()
-        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.summary_label.setStyleSheet("font-size: 13px; font-style: italic; color: #666;")
-        self.summary_label.setWordWrap(True)
-        self.update_summary()
-        self.body.addWidget(self.summary_label)
-        self.body.addSpacing(20)
-        
-        # Connect value changes
-        self.frequency_slider.valueChanged.connect(self.update_frequency_label)
-        self.interval_slider.valueChanged.connect(self.update_interval_label)
-        
-        self.frequency_slider.valueChanged.connect(self.update_summary)
-        self.interval_slider.valueChanged.connect(self.update_summary)
-        
-        # Save button
-        save_btn = QPushButton("Save to Settings")
-        style_button(save_btn)
-        save_btn.setFixedWidth(250)
-        save_btn.setMinimumHeight(45)
-        save_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; border-radius: 12px;")
-        save_btn.clicked.connect(self.save_settings)
-        self.body.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-    
-    def update_frequency_label(self, value):
-        self.frequency_value_label.setText(str(value))
-    
-    def update_interval_label(self, value):
-        self.interval_value_label.setText(str(value))
-    
-    def update_summary(self):
-        """Update the summary information display"""
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        
-        summary_text = f"📷 Recordings per day: {frequency}  |  ⏱️ Interval: {interval} hours"
-        self.summary_label.setText(summary_text)
-    
-    def save_settings(self):
-        """Save the camera settings"""
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        print(f"Camera Settings: Frequency={frequency}x/day, Interval={interval}h")
+        interval_layout.addWidget(self.run_interval_spinbox)
+        interval_layout.addStretch()
 
+        self.body.addLayout(interval_layout)
 
-class AtmosphericSensorSettingsPage(BasePage):
-    def __init__(self):
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.apply_camera)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
+
+    def apply_camera(self):
+        # Placeholder for applying settings
+        print("Camera settings applied")
+
+class SensorPage(BasePage):
+    def __init__(self, switch):
         super().__init__("Atmospheric Sensor Settings")
-        
-        # Description
-        desc_label = QLabel("Configure atmospheric sensor operation parameters")
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        desc_label.setStyleSheet("font-size: 14px;")
-        self.body.addWidget(desc_label)
-        self.body.addSpacing(25)
-        
-        # Main horizontal layout for two columns
-        main_content_layout = QHBoxLayout()
-        main_content_layout.setSpacing(40)
-        
-        # Left Column - Sliders Container
-        sliders_container = QWidget()
-        sliders_container.setFixedWidth(500)
-        sliders_layout = QVBoxLayout(sliders_container)
-        sliders_layout.setSpacing(25)
-        
-        # Run Frequency Slider
-        frequency_layout = QHBoxLayout()
-        frequency_layout.setSpacing(15)
-        
-        frequency_label = QLabel("Run Frequency (times/day):")
-        frequency_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        frequency_label.setFixedWidth(200)
-        
-        self.frequency_slider = QSlider(Qt.Orientation.Horizontal)
-        self.frequency_slider.setMinimum(1)
-        self.frequency_slider.setMaximum(24)
-        self.frequency_slider.setValue(6)
-        self.frequency_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.frequency_slider.setTickInterval(2)
-        
-        self.frequency_value_label = QLabel("6")
-        self.frequency_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.frequency_value_label.setFixedWidth(30)
-        self.frequency_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
-        frequency_layout.addWidget(frequency_label)
-        frequency_layout.addWidget(self.frequency_slider)
-        frequency_layout.addWidget(self.frequency_value_label)
-        
-        sliders_layout.addLayout(frequency_layout)
-        
-        # Interval Slider
+
+        # Sensor status toggle
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("Sensor Status:")
+        status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.sensor_toggle = QCheckBox("On/Off")
+        self.sensor_toggle.setChecked(True)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.sensor_toggle)
+        status_layout.addStretch()
+
+        self.body.addLayout(status_layout)
+
+        # Reading interval
         interval_layout = QHBoxLayout()
         interval_layout.setSpacing(15)
-        
-        interval_label = QLabel("Interval (hours):")
-        interval_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        interval_label.setFixedWidth(200)
-        
-        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
-        self.interval_slider.setMinimum(1)
-        self.interval_slider.setMaximum(24)
-        self.interval_slider.setValue(4)
-        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.interval_slider.setTickInterval(2)
-        
-        self.interval_value_label = QLabel("4")
-        self.interval_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.interval_value_label.setFixedWidth(30)
-        self.interval_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
+        interval_label = QLabel("Reading Interval (minutes):")
+        interval_label.setStyleSheet("font-size: 14px;")
+        self.interval_spinbox = QSpinBox()
+        self.interval_spinbox.setMinimum(1)
+        self.interval_spinbox.setMaximum(60)
+        self.interval_spinbox.setValue(5)
         interval_layout.addWidget(interval_label)
-        interval_layout.addWidget(self.interval_slider)
-        interval_layout.addWidget(self.interval_value_label)
-        
-        sliders_layout.addLayout(interval_layout)
-        
-        # Right Column - Recording Options
-        recording_group = QGroupBox("What do you want to record?")
-        recording_group.setStyleSheet("font-size: 15px; font-weight: 600;")
-        recording_group.setFixedWidth(300)
-        recording_group.setMinimumHeight(250)  # Set minimum height to prevent collapse
-        recording_layout = QVBoxLayout()
-        recording_layout.setSpacing(25)  # Increased spacing for better legibility
-        recording_layout.setContentsMargins(15, 25, 15, 25)  # Add padding around checkboxes
-        recording_layout.setAlignment(Qt.AlignmentFlag.AlignTop)  # Align items to top
-        
-        # Create checkboxes for each recording option
-        self.gases_checkbox = QCheckBox("Gases (VOCs)")
-        self.temperature_checkbox = QCheckBox("Temperature")
-        self.humidity_checkbox = QCheckBox("Humidity")
-        self.pressure_checkbox = QCheckBox("Barometric Pressure")
-        
-        # Checkboxes start unchecked - user can select multiple options
-        self.gases_checkbox.setChecked(False)
-        self.temperature_checkbox.setChecked(False)
-        self.humidity_checkbox.setChecked(False)
-        self.pressure_checkbox.setChecked(False)
-        
-        # Style checkboxes with better size and spacing
-        for checkbox in [self.gases_checkbox, self.temperature_checkbox, 
-                         self.humidity_checkbox, self.pressure_checkbox]:
-            checkbox.setStyleSheet("font-size: 15px; padding: 8px;")
-            checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        recording_layout.addWidget(self.gases_checkbox)
-        recording_layout.addWidget(self.temperature_checkbox)
-        recording_layout.addWidget(self.humidity_checkbox)
-        recording_layout.addWidget(self.pressure_checkbox)
-        recording_layout.addStretch()
-        
-        recording_group.setLayout(recording_layout)
-        
-        # Add both columns to main content layout with top alignment
-        main_content_layout.addWidget(sliders_container, alignment=Qt.AlignmentFlag.AlignTop)
-        main_content_layout.addWidget(recording_group, alignment=Qt.AlignmentFlag.AlignTop)
-        main_content_layout.addStretch()
-        
-        self.body.addLayout(main_content_layout)
-        self.body.addSpacing(20)
-        
-        # Summary Information
-        self.summary_label = QLabel()
-        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.summary_label.setStyleSheet("font-size: 13px; font-style: italic; color: #666;")
-        self.summary_label.setWordWrap(True)
-        self.update_summary()
-        self.body.addWidget(self.summary_label)
-        self.body.addSpacing(20)
-        
-        # Connect value changes
-        self.frequency_slider.valueChanged.connect(self.update_frequency_label)
-        self.interval_slider.valueChanged.connect(self.update_interval_label)
-        
-        self.frequency_slider.valueChanged.connect(self.update_summary)
-        self.interval_slider.valueChanged.connect(self.update_summary)
-        
-        # Save button
-        save_btn = QPushButton("Save to Settings")
-        style_button(save_btn)
-        save_btn.setFixedWidth(250)
-        save_btn.setMinimumHeight(45)
-        save_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; border-radius: 12px;")
-        save_btn.clicked.connect(self.save_settings)
-        self.body.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-    
-    def update_frequency_label(self, value):
-        self.frequency_value_label.setText(str(value))
-    
-    def update_interval_label(self, value):
-        self.interval_value_label.setText(str(value))
-    
-    def update_summary(self):
-        """Update the summary information display"""
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        
-        summary_text = f"🌡️ Sensor runs per day: {frequency}  |  ⏱️ Interval: {interval} hours"
-        self.summary_label.setText(summary_text)
-    
-    def save_settings(self):
-        """Save the atmospheric sensor settings"""
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        
-        # Get selected recording options
-        recording_options = []
-        if self.gases_checkbox.isChecked():
-            recording_options.append("Gases (VOCs)")
-        if self.temperature_checkbox.isChecked():
-            recording_options.append("Temperature")
-        if self.humidity_checkbox.isChecked():
-            recording_options.append("Humidity")
-        if self.pressure_checkbox.isChecked():
-            recording_options.append("Barometric Pressure")
-        
-        print(f"Atmospheric Sensor: Frequency={frequency}x/day, Interval={interval}h")
-        print(f"Recording: {', '.join(recording_options)}")
+        interval_layout.addWidget(self.interval_spinbox)
+        interval_layout.addStretch()
 
+        self.body.addLayout(interval_layout)
 
-class SimplePage(BasePage):
-    def __init__(self, title):
-        super().__init__(title)
-        note = QLabel(f"This is the {title} page.")
-        note.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.body.addWidget(note)
+        # Temperature threshold
+        temp_layout = QHBoxLayout()
+        temp_layout.setSpacing(15)
+        temp_label = QLabel("Temperature Threshold (°C):")
+        temp_label.setStyleSheet("font-size: 14px;")
+        self.temp_spinbox = QSpinBox()
+        self.temp_spinbox.setMinimum(0)
+        self.temp_spinbox.setMaximum(50)
+        self.temp_spinbox.setValue(25)
+        temp_layout.addWidget(temp_label)
+        temp_layout.addWidget(self.temp_spinbox)
+        temp_layout.addStretch()
 
+        self.body.addLayout(temp_layout)
 
-class AboutPage(BasePage):
-    def __init__(self):
-        super().__init__("About Auxora Nanolabs")
-        
-        info_text = QLabel(
-            "Auxora Nanolabs Control Panel\n\n"
-            "Version 7.0\n\n"
-            "A modern interface for controlling and monitoring\n"
-            "your NanoLab system with Arduino integration.\n\n"
-            "The Auxora NanoLab was modified by:\n"
-            "Savannah Finn and Alexandria Tuell"
-        )
-        info_text.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        info_text.setStyleSheet("font-size: 15px; line-height: 1.6;")
-        
-        self.body.addWidget(info_text)
+        # Humidity threshold
+        humidity_layout = QHBoxLayout()
+        humidity_layout.setSpacing(15)
+        humidity_label = QLabel("Humidity Threshold (%):")
+        humidity_label.setStyleSheet("font-size: 14px;")
+        self.humidity_spinbox = QSpinBox()
+        self.humidity_spinbox.setMinimum(0)
+        self.humidity_spinbox.setMaximum(100)
+        self.humidity_spinbox.setValue(60)
+        humidity_layout.addWidget(humidity_label)
+        humidity_layout.addWidget(self.humidity_spinbox)
+        humidity_layout.addStretch()
 
+        self.body.addLayout(humidity_layout)
 
-class StoragePage(BasePage):
-    def __init__(self):
-        super().__init__("Storage Settings")
-        
-        storage_label = QLabel("Manage your data storage and export settings")
-        storage_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        
-        export_btn = QPushButton("Export Data")
-        clear_btn = QPushButton("Clear Storage")
-        
-        for btn in (export_btn, clear_btn):
-            style_button(btn)
-            btn.setFixedWidth(250)
-        
-        self.body.addWidget(storage_label)
-        self.body.addSpacing(20)
-        self.body.addWidget(export_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.body.addWidget(clear_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+        # Duration settings
+        duration_layout = QHBoxLayout()
+        duration_layout.setSpacing(15)
+        duration_label = QLabel("Run Duration (seconds):")
+        duration_label.setStyleSheet("font-size: 14px;")
+        self.duration_spinbox = QSpinBox()
+        self.duration_spinbox.setMinimum(1)
+        self.duration_spinbox.setMaximum(3600)
+        self.duration_spinbox.setValue(300)
+        duration_layout.addWidget(duration_label)
+        duration_layout.addWidget(self.duration_spinbox)
+        duration_layout.addStretch()
 
+        self.body.addLayout(duration_layout)
+
+        # Interval settings
+        interval_layout = QHBoxLayout()
+        interval_layout.setSpacing(15)
+        interval_label = QLabel("Run Interval (minutes):")
+        interval_label.setStyleSheet("font-size: 14px;")
+        self.run_interval_spinbox = QSpinBox()
+        self.run_interval_spinbox.setMinimum(1)
+        self.run_interval_spinbox.setMaximum(1440)
+        self.run_interval_spinbox.setValue(60)
+        interval_layout.addWidget(interval_label)
+        interval_layout.addWidget(self.run_interval_spinbox)
+        interval_layout.addStretch()
+
+        self.body.addLayout(interval_layout)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.apply_sensor)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
+
+    def apply_sensor(self):
+        # Placeholder for applying settings
+        print("Sensor settings applied")
 
 class SchedulePage(BasePage):
-    def __init__(self):
-        super().__init__("Project Schedule")
-        
-        # Description
-        desc_label = QLabel("Select the start and end dates for your NanoLab project")
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        desc_label.setStyleSheet("font-size: 15px; margin-bottom: 10px;")
-        self.body.addWidget(desc_label)
-        self.body.addSpacing(10)
-        
-        # Start Date Section
-        start_container = QVBoxLayout()
-        start_container.setSpacing(10)
-        start_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        
-        start_label = QLabel("Project Start Date:")
-        start_label.setStyleSheet("font-size: 16px; font-weight: 600;")
-        start_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        
-        self.start_date = QDateEdit()
-        self.start_date.setCalendarPopup(True)
-        self.start_date.setDate(QDate.currentDate())
-        self.start_date.setMinimumHeight(45)
-        self.start_date.setMinimumWidth(250)
-        self.start_date.setDisplayFormat("MMMM dd, yyyy")
-        self.start_date.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.start_date.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        start_container.addWidget(start_label)
-        start_container.addWidget(self.start_date, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.body.addLayout(start_container)
-        self.body.addSpacing(20)
-        
-        # End Date Section
-        end_container = QVBoxLayout()
-        end_container.setSpacing(10)
-        end_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        
-        end_label = QLabel("Project End Date:")
-        end_label.setStyleSheet("font-size: 16px; font-weight: 600;")
-        end_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        
-        self.end_date = QDateEdit()
-        self.end_date.setCalendarPopup(True)
-        self.end_date.setDate(QDate.currentDate().addDays(30))
-        self.end_date.setMinimumHeight(45)
-        self.end_date.setMinimumWidth(250)
-        self.end_date.setDisplayFormat("MMMM dd, yyyy")
-        self.end_date.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.end_date.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        end_container.addWidget(end_label)
-        end_container.addWidget(self.end_date, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.body.addLayout(end_container)
-        self.body.addSpacing(30)
-        
-        # Project duration display
-        self.duration_label = QLabel()
-        self.duration_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.duration_label.setStyleSheet("font-size: 14px; font-style: italic; color: #666;")
-        self.update_duration()
-        self.body.addWidget(self.duration_label)
-        self.body.addSpacing(20)
-        
-        # Connect date changes to update duration
-        self.start_date.dateChanged.connect(self.update_duration)
-        self.end_date.dateChanged.connect(self.update_duration)
-        
-        # Save button
-        save_btn = QPushButton("Save Project Schedule")
-        style_button(save_btn)
-        save_btn.setFixedWidth(300)
-        save_btn.setMinimumHeight(50)
-        save_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; border-radius: 12px; padding: 12px 24px;")
-        save_btn.clicked.connect(self.save_schedule)
-        self.body.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-        
-    def update_duration(self):
-        """Calculate and display project duration"""
-        start = self.start_date.date()
-        end = self.end_date.date()
-        days = start.daysTo(end)
-        
-        if days < 0:
-            self.duration_label.setText("⚠️ End date must be after start date")
-            self.duration_label.setStyleSheet("font-size: 14px; font-style: italic; color: #d32f2f;")
-        else:
-            self.duration_label.setText(f"Project Duration: {days} days")
-            self.duration_label.setStyleSheet("font-size: 14px; font-style: italic; color: #666;")
-    
-    def save_schedule(self):
-        """Save the project schedule (placeholder for future implementation)"""
-        start = self.start_date.date().toString("yyyy-MM-dd")
-        end = self.end_date.date().toString("yyyy-MM-dd")
-        # Future: Save to database or file
-        print(f"Schedule saved: {start} to {end}")
+    def __init__(self, switch):
+        super().__init__("Schedule Settings")
 
+        # Placeholder content
+        label = QLabel("Schedule Settings will be implemented here.")
+        self.body.addWidget(label)
 
-class WaterPumpSettingsPage(BasePage):
-    def __init__(self):
-        super().__init__("Water Pump Settings")
-        
-        # Description
-        desc_label = QLabel("Configure water pump operation parameters")
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        desc_label.setStyleSheet("font-size: 14px;")
-        self.body.addWidget(desc_label)
-        self.body.addSpacing(25)
-        
-        # Container for all sliders with fixed width
-        sliders_container = QWidget()
-        sliders_container.setFixedWidth(650)
-        sliders_layout = QVBoxLayout(sliders_container)
-        sliders_layout.setSpacing(25)
-        
-        # Pump Duration Slider
-        duration_layout = QHBoxLayout()
-        duration_layout.setSpacing(15)
-        
-        duration_label = QLabel("Run Duration (seconds):")
-        duration_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        duration_label.setFixedWidth(230)
-        
-        self.duration_slider = QSlider(Qt.Orientation.Horizontal)
-        self.duration_slider.setMinimum(1)
-        self.duration_slider.setMaximum(300)  # Max 5 minutes
-        self.duration_slider.setValue(30)
-        self.duration_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.duration_slider.setTickInterval(30)
-        
-        self.duration_value_label = QLabel("30")
-        self.duration_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.duration_value_label.setFixedWidth(30)
-        self.duration_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
-        duration_layout.addWidget(duration_label)
-        duration_layout.addWidget(self.duration_slider)
-        duration_layout.addWidget(self.duration_value_label)
-        
-        sliders_layout.addLayout(duration_layout)
-        
-        # Run Frequency Slider
-        frequency_layout = QHBoxLayout()
-        frequency_layout.setSpacing(15)
-        
-        frequency_label = QLabel("Run Frequency (times/day):")
-        frequency_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        frequency_label.setFixedWidth(230)
-        
-        self.frequency_slider = QSlider(Qt.Orientation.Horizontal)
-        self.frequency_slider.setMinimum(1)
-        self.frequency_slider.setMaximum(24)
-        self.frequency_slider.setValue(4)
-        self.frequency_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.frequency_slider.setTickInterval(2)
-        
-        self.frequency_value_label = QLabel("4")
-        self.frequency_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.frequency_value_label.setFixedWidth(30)
-        self.frequency_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
-        frequency_layout.addWidget(frequency_label)
-        frequency_layout.addWidget(self.frequency_slider)
-        frequency_layout.addWidget(self.frequency_value_label)
-        
-        sliders_layout.addLayout(frequency_layout)
-        
-        # Interval Slider
-        interval_layout = QHBoxLayout()
-        interval_layout.setSpacing(15)
-        
-        interval_label = QLabel("Interval (hours):")
-        interval_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        interval_label.setFixedWidth(230)
-        
-        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
-        self.interval_slider.setMinimum(1)
-        self.interval_slider.setMaximum(24)
-        self.interval_slider.setValue(6)  # Default 6 hours
-        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.interval_slider.setTickInterval(2)
-        
-        self.interval_value_label = QLabel("6")
-        self.interval_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.interval_value_label.setFixedWidth(30)
-        self.interval_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        
-        interval_layout.addWidget(interval_label)
-        interval_layout.addWidget(self.interval_slider)
-        interval_layout.addWidget(self.interval_value_label)
-        
-        sliders_layout.addLayout(interval_layout)
-        
-        self.body.addWidget(sliders_container, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.body.addSpacing(20)
-        
-        # Summary Information
-        self.summary_label = QLabel()
-        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.summary_label.setStyleSheet("font-size: 13px; font-style: italic; color: #666;")
-        self.summary_label.setWordWrap(True)
-        self.update_summary()
-        self.body.addWidget(self.summary_label)
-        self.body.addSpacing(20)
-        
-        # Connect value changes
-        self.duration_slider.valueChanged.connect(self.update_duration_label)
-        self.frequency_slider.valueChanged.connect(self.update_frequency_label)
-        self.interval_slider.valueChanged.connect(self.update_interval_label)
-        
-        self.duration_slider.valueChanged.connect(self.update_summary)
-        self.frequency_slider.valueChanged.connect(self.update_summary)
-        self.interval_slider.valueChanged.connect(self.update_summary)
-        
-        # Save button
-        save_btn = QPushButton("Save to Settings")
-        style_button(save_btn)
-        save_btn.setFixedWidth(250)
-        save_btn.setMinimumHeight(45)
-        save_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; border-radius: 12px;")
-        save_btn.clicked.connect(self.save_settings)
-        self.body.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
-    
-    def update_duration_label(self, value):
-        self.duration_value_label.setText(str(value))
-    
-    def update_frequency_label(self, value):
-        self.frequency_value_label.setText(str(value))
-    
-    def update_interval_label(self, value):
-        self.interval_value_label.setText(str(value))
-    
-    def update_summary(self):
-        """Update the summary information display"""
-        duration = self.duration_slider.value()
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        
-        # Calculate total daily runtime
-        total_runtime = duration * frequency
-        hours = total_runtime // 3600
-        minutes = (total_runtime % 3600) // 60
-        seconds = total_runtime % 60
-        
-        runtime_str = ""
-        if hours > 0:
-            runtime_str += f"{hours}h "
-        if minutes > 0:
-            runtime_str += f"{minutes}m "
-        runtime_str += f"{seconds}s"
-        
-        summary_text = f"💧 Total runtime: {runtime_str.strip()}  |  ⏱️ Interval: {interval} hours"
-        self.summary_label.setText(summary_text)
-    
-    def save_settings(self):
-        """Save the water pump settings"""
-        duration = self.duration_slider.value()
-        frequency = self.frequency_slider.value()
-        interval = self.interval_slider.value()
-        print(f"Water Pump: Duration={duration}s, Frequency={frequency}x/day, Interval={interval}h")
-
-
-class SettingsComparisonPage(BasePage):
-    def __init__(self):
-        super().__init__("Settings Comparison")
-        
-        # Description
-        desc_label = QLabel(
-            "This page will allow you to compare settings used on different days.\n"
-            "Track and analyze changes in your NanoLab configuration over time."
-        )
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        desc_label.setStyleSheet("font-size: 15px; line-height: 1.6;")
-        desc_label.setWordWrap(True)
-        self.body.addWidget(desc_label)
-        self.body.addSpacing(20)
-        
-        # Placeholder for future functionality
-        placeholder_label = QLabel("⚙️ Coming Soon ⚙️")
-        placeholder_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        placeholder_label.setStyleSheet("font-size: 24px; font-weight: 600; color: #888;")
-        self.body.addWidget(placeholder_label)
-        self.body.addSpacing(10)
-        
-        feature_list = QLabel(
-            "Future Features:\n\n"
-            "• Select specific dates to compare\n"
-            "• View side-by-side setting comparisons\n"
-            "• Track LED color changes\n"
-            "• Monitor pump and sensor settings\n"
-            "• Export comparison reports"
-        )
-        feature_list.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        feature_list.setStyleSheet("font-size: 14px; line-height: 1.8;")
-        self.body.addWidget(feature_list)
-
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+        self.body.addWidget(back_btn)
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Auxora Nanolabs Control Panel")
-        self.setMinimumSize(900, 650)
+        self.setWindowTitle("Auxora NanoLab Control")
+        self.setGeometry(100, 100, 1200, 800)
 
         self.stack = QStackedWidget()
+        self.stack.addWidget(MainPage(self.switch_page))
+        self.stack.addWidget(WaterPumpPage(self.switch_page))
+        self.stack.addWidget(LEDSettingsPage(self.switch_page))
+        self.stack.addWidget(FanSettingsPage(self.switch_page))
+        self.stack.addWidget(CameraPage(self.switch_page))
+        self.stack.addWidget(SensorPage(self.switch_page))
+        self.stack.addWidget(SchedulePage(self.switch_page))
+
         self.setCentralWidget(self.stack)
 
-        self.history = []
-        self.forward_history = []
+        # Global stylesheet
+        self.setStyleSheet(f"""
+            QMainWindow {{ background-color: {LIGHT_BG}; }}
+            QLabel {{ font-size: 16px; color: {TEXT_LIGHT}; }}
+            #titleLabel {{ font-size: 28px; font-weight: bold; color: {GREEN_DARK}; }}
+            QPushButton {{ background-color: {GREEN}; color: {TEXT_LIGHT}; border: none; border-radius: 8px; font-size: 16px; }}
+            QPushButton:hover {{ background-color: {GREEN_DARK}; }}
+            QComboBox {{ background-color: white; border: 1px solid {GREEN}; border-radius: 4px; padding: 8px; }}
+            QGroupBox {{ font-weight: bold; border: 2px solid {GREEN_DARK}; border-radius: 8px; margin-top: 1ex; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 10px 0 10px; }}
+        """)
 
-        self.current_theme = "light"
-
-        self.pages = {
-            "welcome": WelcomePage(self.switch_to),
-            "settings_menu": SettingsMenuPage(self.switch_to),
-            "data": SimplePage("Data Results"),
-            "water": WaterPumpSettingsPage(),
-            "led": LEDSettingsPage(),
-            "fan": SimplePage("Fan Settings"),
-            "camera": CameraSettingsPage(),
-            "sensor": AtmosphericSensorSettingsPage(),
-            "about": AboutPage(),
-            "storage": StoragePage(),
-            "schedule": SchedulePage(),
-            "settings_comparison": SettingsComparisonPage(),
-        }
-
-        for p in self.pages.values():
-            self.stack.addWidget(p)
-
-        self.toolbar_setup()
-        self.apply_theme()
-        self.switch_to("welcome", record=False)
-
-    def toolbar_setup(self):
-        toolbar = QToolBar()
-        back_btn = QPushButton("← Back")
-        forward_btn = QPushButton("→ Forward")
-        review_data_btn = QPushButton("Review Data")
-        adjust_settings_btn = QPushButton("Adjust Settings")
-        schedule_btn = QPushButton("Schedule")
-        about_btn = QPushButton("About")
-        storage_btn = QPushButton("Storage")
-        theme_btn = QPushButton("Toggle Theme")
-
-        for btn in (back_btn, forward_btn, review_data_btn, adjust_settings_btn, schedule_btn, about_btn, storage_btn, theme_btn):
-            style_button(btn)
-
-        back_btn.clicked.connect(self.go_back)
-        forward_btn.clicked.connect(self.go_forward)
-        review_data_btn.clicked.connect(lambda: self.switch_to("data"))
-        adjust_settings_btn.clicked.connect(lambda: self.switch_to("settings_menu"))
-        schedule_btn.clicked.connect(lambda: self.switch_to("schedule"))
-        about_btn.clicked.connect(lambda: self.switch_to("about"))
-        storage_btn.clicked.connect(lambda: self.switch_to("storage"))
-        theme_btn.clicked.connect(self.toggle_theme)
-
-        toolbar.addWidget(back_btn)
-        toolbar.addWidget(forward_btn)
-        toolbar.addWidget(review_data_btn)
-        toolbar.addWidget(adjust_settings_btn)
-        toolbar.addWidget(schedule_btn)
-        toolbar.addWidget(about_btn)
-        toolbar.addWidget(storage_btn)
-        toolbar.addWidget(theme_btn)
-        self.addToolBar(toolbar)
-
-    def switch_to(self, name, record=True):
-        if record:
-            current_idx = self.stack.currentIndex()
-            if not self.history or self.history[-1] != current_idx:
-                self.history.append(current_idx)
-            self.forward_history.clear()
-        self.stack.setCurrentWidget(self.pages[name])
-
-    def go_back(self):
-        if not self.history:
-            return
-        idx = self.history.pop()
-        self.forward_history.append(self.stack.currentIndex())
-        self.stack.setCurrentIndex(idx)
-
-    def go_forward(self):
-        if not self.forward_history:
-            return
-        idx = self.forward_history.pop()
-        self.history.append(self.stack.currentIndex())
-        self.stack.setCurrentIndex(idx)
-
-    def toggle_theme(self):
-        self.current_theme = "dark" if self.current_theme == "light" else "light"
-        self.apply_theme()
-
-    def apply_theme(self):
-        if self.current_theme == "light":
-            self.setStyleSheet(f"""
-                QMainWindow {{
-                    background-color: #ffffff;
-                }}
-                QWidget {{
-                    background-color: #ffffff;
-                    color: {TEXT_LIGHT};
-                    font-family: 'Segoe UI', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-                }}
-                QStackedWidget, QStackedWidget > QWidget {{
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f5f5f5);
-                }}
-                QPushButton {{
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 {GREEN}, stop:1 #86b786);
-                    color: black;
-                    border: none;
-                    border-radius: 14px;
-                    padding: 14px 24px;
-                    font-weight: 600;
-                    font-size: 15px;
-                    letter-spacing: 0.3px;
-                }}
-                QPushButton:hover {{
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #2f4f2d, stop:1 #4b6a44);
-                    color: white;
-                    transform: translateY(-2px);
-                }}
-                QPushButton:pressed {{
-                    background-color: #2f4f2d;
-                    transform: translateY(0px);
-                }}
-                QLabel#titleLabel {{
-                    font-size: 36px;
-                    font-weight: 700;
-                    margin-bottom: 20px;
-                    color: #1a1a1a;
-                    letter-spacing: -0.5px;
-                }}
-                QLabel {{
-                    font-size: 14px;
-                    color: #333333;
-                }}
-                QLineEdit {{
-                    background-color: white;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 14px;
-                    color: #333333;
-                }}
-                QLineEdit:focus {{
-                    border: 2px solid {GREEN};
-                }}
-                QToolBar {{
-                    background-color: #f8f8f8;
-                    border-bottom: 1px solid #e0e0e0;
-                    spacing: 10px;
-                    padding: 8px;
-                }}
-                QComboBox {{
-                    background-color: white;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 14px;
-                    color: #333333;
-                }}
-                QComboBox:hover {{
-                    border: 2px solid {GREEN};
-                }}
-                QComboBox::drop-down {{
-                    border: none;
-                    width: 30px;
-                }}
-                QComboBox::down-arrow {{
-                    image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid #333333;
-                    margin-right: 8px;
-                }}
-                QComboBox QAbstractItemView {{
-                    background-color: white;
-                    border: 2px solid {GREEN};
-                    border-radius: 8px;
-                    selection-background-color: {GREEN};
-                    selection-color: black;
-                    padding: 5px;
-                }}
-                QDateEdit {{
-                    background-color: white;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: #333333;
-                }}
-                QDateEdit:hover {{
-                    border: 2px solid {GREEN};
-                }}
-                QDateEdit::drop-down {{
-                    subcontrol-origin: padding;
-                    subcontrol-position: center right;
-                    width: 30px;
-                    border: none;
-                }}
-                QDateEdit::down-arrow {{
-                    image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid #333333;
-                }}
-                QCalendarWidget {{
-                    background-color: white;
-                    border: 2px solid {GREEN};
-                    border-radius: 8px;
-                }}
-                QCalendarWidget QTableView {{
-                    background-color: white;
-                    selection-background-color: {GREEN};
-                    selection-color: black;
-                }}
-                QCalendarWidget QToolButton {{
-                    background-color: {GREEN};
-                    color: black;
-                    border-radius: 6px;
-                    padding: 5px;
-                }}
-                QCalendarWidget QToolButton:hover {{
-                    background-color: #2f4f2d;
-                    color: white;
-                }}
-                QSpinBox {{
-                    background-color: white;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: #333333;
-                }}
-                QSpinBox:hover {{
-                    border: 2px solid {GREEN};
-                }}
-                QSpinBox:focus {{
-                    border: 2px solid {GREEN};
-                }}
-                QSpinBox::up-button {{
-                    subcontrol-origin: border;
-                    subcontrol-position: top right;
-                    width: 25px;
-                    border-left: 1px solid #e0e0e0;
-                    border-bottom: 1px solid #e0e0e0;
-                    border-top-right-radius: 8px;
-                    background-color: #f5f5f5;
-                }}
-                QSpinBox::up-button:hover {{
-                    background-color: {GREEN};
-                }}
-                QSpinBox::down-button {{
-                    subcontrol-origin: border;
-                    subcontrol-position: bottom right;
-                    width: 25px;
-                    border-left: 1px solid #e0e0e0;
-                    border-bottom-right-radius: 8px;
-                    background-color: #f5f5f5;
-                }}
-                QSpinBox::down-button:hover {{
-                    background-color: {GREEN};
-                }}
-                QSpinBox::up-arrow {{
-                    image: none;
-                    border-left: 4px solid transparent;
-                    border-right: 4px solid transparent;
-                    border-bottom: 5px solid #333333;
-                    width: 0px;
-                    height: 0px;
-                }}
-                QSpinBox::down-arrow {{
-                    image: none;
-                    border-left: 4px solid transparent;
-                    border-right: 4px solid transparent;
-                    border-top: 5px solid #333333;
-                    width: 0px;
-                    height: 0px;
-                }}
-            """)
-        else:
-            self.setStyleSheet(f"""
-                QMainWindow {{
-                    background-color: #1a1a1a;
-                }}
-                QWidget {{
-                    background-color: #1a1a1a;
-                    color: {TEXT_DARK};
-                    font-family: 'Segoe UI', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-                }}
-                QStackedWidget, QStackedWidget > QWidget {{
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #1a1a1a, stop:1 #0d0d0d);
-                }}
-                QPushButton {{
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #2f4f2d, stop:1 #4b6a44);
-                    color: white;
-                    border: none;
-                    border-radius: 14px;
-                    padding: 14px 24px;
-                    font-weight: 600;
-                    font-size: 15px;
-                    letter-spacing: 0.3px;
-                }}
-                QPushButton:hover {{
-                    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 {GREEN}, stop:1 #86b786);
-                    color: black;
-                    transform: translateY(-2px);
-                }}
-                QPushButton:pressed {{
-                    background-color: {GREEN};
-                    transform: translateY(0px);
-                }}
-                QLabel#titleLabel {{
-                    font-size: 36px;
-                    font-weight: 700;
-                    margin-bottom: 20px;
-                    color: #ffffff;
-                    letter-spacing: -0.5px;
-                }}
-                QLabel {{
-                    font-size: 14px;
-                    color: #e0e0e0;
-                }}
-                QLineEdit {{
-                    background-color: #2a2a2a;
-                    border: 2px solid #404040;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 14px;
-                    color: #ffffff;
-                }}
-                QLineEdit:focus {{
-                    border: 2px solid {GREEN};
-                }}
-                QToolBar {{
-                    background-color: #252525;
-                    border-bottom: 1px solid #404040;
-                    spacing: 10px;
-                    padding: 8px;
-                }}
-                QComboBox {{
-                    background-color: #2a2a2a;
-                    border: 2px solid #404040;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 14px;
-                    color: #ffffff;
-                }}
-                QComboBox:hover {{
-                    border: 2px solid {GREEN};
-                }}
-                QComboBox::drop-down {{
-                    border: none;
-                    width: 30px;
-                }}
-                QComboBox::down-arrow {{
-                    image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid #ffffff;
-                    margin-right: 8px;
-                }}
-                QComboBox QAbstractItemView {{
-                    background-color: #2a2a2a;
-                    border: 2px solid {GREEN};
-                    border-radius: 8px;
-                    selection-background-color: {GREEN};
-                    selection-color: black;
-                    padding: 5px;
-                }}
-                QDateEdit {{
-                    background-color: #2a2a2a;
-                    border: 2px solid #404040;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: #ffffff;
-                }}
-                QDateEdit:hover {{
-                    border: 2px solid {GREEN};
-                }}
-                QDateEdit::drop-down {{
-                    subcontrol-origin: padding;
-                    subcontrol-position: center right;
-                    width: 30px;
-                    border: none;
-                }}
-                QDateEdit::down-arrow {{
-                    image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid #ffffff;
-                }}
-                QCalendarWidget {{
-                    background-color: #2a2a2a;
-                    border: 2px solid {GREEN};
-                    border-radius: 8px;
-                }}
-                QCalendarWidget QTableView {{
-                    background-color: #2a2a2a;
-                    color: #ffffff;
-                    selection-background-color: {GREEN};
-                    selection-color: black;
-                }}
-                QCalendarWidget QToolButton {{
-                    background-color: #2f4f2d;
-                    color: white;
-                    border-radius: 6px;
-                    padding: 5px;
-                }}
-                QCalendarWidget QToolButton:hover {{
-                    background-color: {GREEN};
-                    color: black;
-                }}
-                QCalendarWidget QWidget {{
-                    alternate-background-color: #1a1a1a;
-                }}
-                QSpinBox {{
-                    background-color: #2a2a2a;
-                    border: 2px solid #404040;
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: #ffffff;
-                }}
-                QSpinBox:hover {{
-                    border: 2px solid {GREEN};
-                }}
-                QSpinBox:focus {{
-                    border: 2px solid {GREEN};
-                }}
-                QSpinBox::up-button {{
-                    subcontrol-origin: border;
-                    subcontrol-position: top right;
-                    width: 25px;
-                    border-left: 1px solid #404040;
-                    border-bottom: 1px solid #404040;
-                    border-top-right-radius: 8px;
-                    background-color: #1a1a1a;
-                }}
-                QSpinBox::up-button:hover {{
-                    background-color: {GREEN};
-                }}
-                QSpinBox::down-button {{
-                    subcontrol-origin: border;
-                    subcontrol-position: bottom right;
-                    width: 25px;
-                    border-left: 1px solid #404040;
-                    border-bottom-right-radius: 8px;
-                    background-color: #1a1a1a;
-                }}
-                QSpinBox::down-button:hover {{
-                    background-color: {GREEN};
-                }}
-                QSpinBox::up-arrow {{
-                    image: none;
-                    border-left: 4px solid transparent;
-                    border-right: 4px solid transparent;
-                    border-bottom: 5px solid #ffffff;
-                    width: 0px;
-                    height: 0px;
-                }}
-                QSpinBox::down-arrow {{
-                    image: none;
-                    border-left: 4px solid transparent;
-                    border-right: 4px solid transparent;
-                    border-top: 5px solid #ffffff;
-                    width: 0px;
-                    height: 0px;
-                }}
-            """)
-
+    def switch_page(self, page_name):
+        if page_name == "main":
+            self.stack.setCurrentIndex(0)
+        elif page_name == "water":
+            self.stack.setCurrentIndex(1)
+        elif page_name == "led":
+            self.stack.setCurrentIndex(2)
+        elif page_name == "fan":
+            self.stack.setCurrentIndex(3)
+        elif page_name == "camera":
+            self.stack.setCurrentIndex(4)
+        elif page_name == "sensor":
+            self.stack.setCurrentIndex(5)
+        elif page_name == "schedule":
+            self.stack.setCurrentIndex(6)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
