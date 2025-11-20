@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
-    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider
+    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox
 )
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QColor
@@ -423,6 +423,182 @@ class CameraSettingsPage(BasePage):
         print(f"Camera Settings: Frequency={frequency}x/day, Interval={interval}h")
 
 
+class AtmosphericSensorSettingsPage(BasePage):
+    def __init__(self):
+        super().__init__("Atmospheric Sensor Settings")
+        
+        # Description
+        desc_label = QLabel("Configure atmospheric sensor operation parameters")
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        desc_label.setStyleSheet("font-size: 14px;")
+        self.body.addWidget(desc_label)
+        self.body.addSpacing(25)
+        
+        # Main horizontal layout for two columns
+        main_content_layout = QHBoxLayout()
+        main_content_layout.setSpacing(40)
+        
+        # Left Column - Sliders Container
+        sliders_container = QWidget()
+        sliders_container.setFixedWidth(500)
+        sliders_layout = QVBoxLayout(sliders_container)
+        sliders_layout.setSpacing(25)
+        
+        # Run Frequency Slider
+        frequency_layout = QHBoxLayout()
+        frequency_layout.setSpacing(15)
+        
+        frequency_label = QLabel("Run Frequency (times/day):")
+        frequency_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        frequency_label.setFixedWidth(200)
+        
+        self.frequency_slider = QSlider(Qt.Orientation.Horizontal)
+        self.frequency_slider.setMinimum(1)
+        self.frequency_slider.setMaximum(24)
+        self.frequency_slider.setValue(6)
+        self.frequency_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.frequency_slider.setTickInterval(2)
+        
+        self.frequency_value_label = QLabel("6")
+        self.frequency_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.frequency_value_label.setFixedWidth(30)
+        self.frequency_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        frequency_layout.addWidget(frequency_label)
+        frequency_layout.addWidget(self.frequency_slider)
+        frequency_layout.addWidget(self.frequency_value_label)
+        
+        sliders_layout.addLayout(frequency_layout)
+        
+        # Interval Slider
+        interval_layout = QHBoxLayout()
+        interval_layout.setSpacing(15)
+        
+        interval_label = QLabel("Interval (hours):")
+        interval_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        interval_label.setFixedWidth(200)
+        
+        self.interval_slider = QSlider(Qt.Orientation.Horizontal)
+        self.interval_slider.setMinimum(1)
+        self.interval_slider.setMaximum(24)
+        self.interval_slider.setValue(4)
+        self.interval_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.interval_slider.setTickInterval(2)
+        
+        self.interval_value_label = QLabel("4")
+        self.interval_value_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.interval_value_label.setFixedWidth(30)
+        self.interval_value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        interval_layout.addWidget(interval_label)
+        interval_layout.addWidget(self.interval_slider)
+        interval_layout.addWidget(self.interval_value_label)
+        
+        sliders_layout.addLayout(interval_layout)
+        
+        # Right Column - Recording Options
+        recording_group = QGroupBox("What do you want to record?")
+        recording_group.setStyleSheet("font-size: 15px; font-weight: 600;")
+        recording_group.setFixedWidth(300)
+        recording_group.setMinimumHeight(250)  # Set minimum height to prevent collapse
+        recording_layout = QVBoxLayout()
+        recording_layout.setSpacing(25)  # Increased spacing for better legibility
+        recording_layout.setContentsMargins(15, 25, 15, 25)  # Add padding around checkboxes
+        recording_layout.setAlignment(Qt.AlignmentFlag.AlignTop)  # Align items to top
+        
+        # Create checkboxes for each recording option
+        self.gases_checkbox = QCheckBox("Gases (VOCs)")
+        self.temperature_checkbox = QCheckBox("Temperature")
+        self.humidity_checkbox = QCheckBox("Humidity")
+        self.pressure_checkbox = QCheckBox("Barometric Pressure")
+        
+        # Checkboxes start unchecked - user can select multiple options
+        self.gases_checkbox.setChecked(False)
+        self.temperature_checkbox.setChecked(False)
+        self.humidity_checkbox.setChecked(False)
+        self.pressure_checkbox.setChecked(False)
+        
+        # Style checkboxes with better size and spacing
+        for checkbox in [self.gases_checkbox, self.temperature_checkbox, 
+                         self.humidity_checkbox, self.pressure_checkbox]:
+            checkbox.setStyleSheet("font-size: 15px; padding: 8px;")
+            checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        recording_layout.addWidget(self.gases_checkbox)
+        recording_layout.addWidget(self.temperature_checkbox)
+        recording_layout.addWidget(self.humidity_checkbox)
+        recording_layout.addWidget(self.pressure_checkbox)
+        recording_layout.addStretch()
+        
+        recording_group.setLayout(recording_layout)
+        
+        # Add both columns to main content layout with top alignment
+        main_content_layout.addWidget(sliders_container, alignment=Qt.AlignmentFlag.AlignTop)
+        main_content_layout.addWidget(recording_group, alignment=Qt.AlignmentFlag.AlignTop)
+        main_content_layout.addStretch()
+        
+        self.body.addLayout(main_content_layout)
+        self.body.addSpacing(20)
+        
+        # Summary Information
+        self.summary_label = QLabel()
+        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.summary_label.setStyleSheet("font-size: 13px; font-style: italic; color: #666;")
+        self.summary_label.setWordWrap(True)
+        self.update_summary()
+        self.body.addWidget(self.summary_label)
+        self.body.addSpacing(20)
+        
+        # Connect value changes
+        self.frequency_slider.valueChanged.connect(self.update_frequency_label)
+        self.interval_slider.valueChanged.connect(self.update_interval_label)
+        
+        self.frequency_slider.valueChanged.connect(self.update_summary)
+        self.interval_slider.valueChanged.connect(self.update_summary)
+        
+        # Save button
+        save_btn = QPushButton("Save to Settings")
+        style_button(save_btn)
+        save_btn.setFixedWidth(250)
+        save_btn.setMinimumHeight(45)
+        save_btn.setStyleSheet("font-weight: bold; background-color: #4CAF50; color: white; border-radius: 12px;")
+        save_btn.clicked.connect(self.save_settings)
+        self.body.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+    
+    def update_frequency_label(self, value):
+        self.frequency_value_label.setText(str(value))
+    
+    def update_interval_label(self, value):
+        self.interval_value_label.setText(str(value))
+    
+    def update_summary(self):
+        """Update the summary information display"""
+        frequency = self.frequency_slider.value()
+        interval = self.interval_slider.value()
+        
+        summary_text = f"🌡️ Sensor runs per day: {frequency}  |  ⏱️ Interval: {interval} hours"
+        self.summary_label.setText(summary_text)
+    
+    def save_settings(self):
+        """Save the atmospheric sensor settings"""
+        frequency = self.frequency_slider.value()
+        interval = self.interval_slider.value()
+        
+        # Get selected recording options
+        recording_options = []
+        if self.gases_checkbox.isChecked():
+            recording_options.append("Gases (VOCs)")
+        if self.temperature_checkbox.isChecked():
+            recording_options.append("Temperature")
+        if self.humidity_checkbox.isChecked():
+            recording_options.append("Humidity")
+        if self.pressure_checkbox.isChecked():
+            recording_options.append("Barometric Pressure")
+        
+        print(f"Atmospheric Sensor: Frequency={frequency}x/day, Interval={interval}h")
+        print(f"Recording: {', '.join(recording_options)}")
+
+
 class SimplePage(BasePage):
     def __init__(self, title):
         super().__init__(title)
@@ -789,7 +965,7 @@ class MainWindow(QMainWindow):
             "led": LEDSettingsPage(),
             "fan": SimplePage("Fan Settings"),
             "camera": CameraSettingsPage(),
-            "sensor": SimplePage("Atmospheric Sensor"),
+            "sensor": AtmosphericSensorSettingsPage(),
             "about": AboutPage(),
             "storage": StoragePage(),
             "schedule": SchedulePage(),
