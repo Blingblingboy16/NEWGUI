@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
-    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox
+    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea
 )
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QColor
@@ -110,6 +110,7 @@ class MainPage(BasePage):
             ("Camera", "camera"),
             ("Sensor", "sensor"),
             ("Schedule", "schedule"),
+            ("Settings Overview", "overview"),
         ]
 
         row, col = 0, 0
@@ -374,22 +375,52 @@ class FanSettingsPage(BasePage):
 
         self.body.addLayout(status_layout)
 
-        # Speed slider
-        speed_layout = QVBoxLayout()
-        speed_layout.setSpacing(10)
-        speed_label = QLabel("Fan Speed: 75%")
-        speed_label.setStyleSheet("font-size: 14px;")
-        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setMinimum(0)
-        self.speed_slider.setMaximum(100)
-        self.speed_slider.setValue(75)
-        self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.speed_slider.setTickInterval(10)
-        self.speed_slider.valueChanged.connect(lambda v: speed_label.setText(f"Fan Speed: {v}%"))
+        # Intensity slider
+        intensity_layout = QVBoxLayout()
+        intensity_layout.setSpacing(10)
+        intensity_label = QLabel("Fan Intensity: 75%")
+        intensity_label.setStyleSheet("font-size: 14px;")
+        self.intensity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.intensity_slider.setMinimum(0)
+        self.intensity_slider.setMaximum(100)
+        self.intensity_slider.setValue(75)
+        self.intensity_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.intensity_slider.setTickInterval(10)
+        self.intensity_slider.valueChanged.connect(lambda v: intensity_label.setText(f"Fan Intensity: {v}%"))
 
-        speed_layout.addWidget(speed_label)
-        speed_layout.addWidget(self.speed_slider)
-        self.body.addLayout(speed_layout)
+        intensity_layout.addWidget(intensity_label)
+        intensity_layout.addWidget(self.intensity_slider)
+        self.body.addLayout(intensity_layout)
+
+        # Duration settings
+        duration_layout = QHBoxLayout()
+        duration_layout.setSpacing(15)
+        duration_label = QLabel("Run Duration (seconds):")
+        duration_label.setStyleSheet("font-size: 14px;")
+        self.duration_spinbox = QSpinBox()
+        self.duration_spinbox.setMinimum(1)
+        self.duration_spinbox.setMaximum(3600)
+        self.duration_spinbox.setValue(300)
+        duration_layout.addWidget(duration_label)
+        duration_layout.addWidget(self.duration_spinbox)
+        duration_layout.addStretch()
+
+        self.body.addLayout(duration_layout)
+
+        # Interval settings
+        interval_layout = QHBoxLayout()
+        interval_layout.setSpacing(15)
+        interval_label = QLabel("Run Interval (minutes):")
+        interval_label.setStyleSheet("font-size: 14px;")
+        self.run_interval_spinbox = QSpinBox()
+        self.run_interval_spinbox.setMinimum(1)
+        self.run_interval_spinbox.setMaximum(1440)
+        self.run_interval_spinbox.setValue(60)
+        interval_layout.addWidget(interval_label)
+        interval_layout.addWidget(self.run_interval_spinbox)
+        interval_layout.addStretch()
+
+        self.body.addLayout(interval_layout)
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -615,6 +646,229 @@ class SensorPage(BasePage):
         # Placeholder for applying settings
         print("Sensor settings applied")
 
+class SettingsOverviewPage(BasePage):
+    def __init__(self, switch):
+        super().__init__("Settings Overview")
+
+        # Back to Main button at the top
+        back_layout = QHBoxLayout()
+        back_layout.addStretch()
+        back_btn = QPushButton("Back to Main Page")
+        back_btn.clicked.connect(lambda: switch("main"))
+        back_btn.setStyleSheet("font-size: 16px; padding: 12px 24px; background-color: #2f4f2d; border: none; border-radius: 6px;")
+        back_layout.addWidget(back_btn)
+        back_layout.addStretch()
+        self.body.addLayout(back_layout)
+
+        # Main layout for overview
+        overview_layout = QVBoxLayout()
+        overview_layout.setSpacing(15)
+
+        # Water Pump Settings Overview
+        water_group = QGroupBox("Water Pump")
+        water_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        water_layout = QVBoxLayout()
+        water_layout.setSpacing(10)
+        water_layout.setContentsMargins(15, 15, 15, 15)
+
+        water_settings = [
+            "Status: On",
+            "Speed: 50%",
+            "Flow Rate: 10 L/min",
+            "Duration: 300 seconds",
+            "Interval: 60 minutes"
+        ]
+
+        for setting in water_settings:
+            setting_label = QLabel(setting)
+            setting_label.setStyleSheet("font-size: 14px;")
+            water_layout.addWidget(setting_label)
+
+        # Center the edit button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        edit_water_btn = QPushButton("Edit Water Pump Settings")
+        edit_water_btn.clicked.connect(lambda: switch("water"))
+        edit_water_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
+        btn_layout.addWidget(edit_water_btn)
+        btn_layout.addStretch()
+        water_layout.addLayout(btn_layout)
+
+        water_group.setLayout(water_layout)
+        overview_layout.addWidget(water_group)
+
+        # LED Settings Overview
+        led_group = QGroupBox("LED Settings")
+        led_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        led_layout = QVBoxLayout()
+        led_layout.setSpacing(10)
+        led_layout.setContentsMargins(15, 15, 15, 15)
+
+        led_settings = [
+            "Status: On",
+            "Brightness: 70%",
+            "Color: #FFFFFF",
+            "Duration: 300 seconds",
+            "Interval: 60 minutes"
+        ]
+
+        for setting in led_settings:
+            setting_label = QLabel(setting)
+            setting_label.setStyleSheet("font-size: 14px;")
+            led_layout.addWidget(setting_label)
+
+        # Center the edit button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        edit_led_btn = QPushButton("Edit LED Settings")
+        edit_led_btn.clicked.connect(lambda: switch("led"))
+        edit_led_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
+        btn_layout.addWidget(edit_led_btn)
+        btn_layout.addStretch()
+        led_layout.addLayout(btn_layout)
+
+        led_group.setLayout(led_layout)
+        overview_layout.addWidget(led_group)
+
+        # Fan Settings Overview
+        fan_group = QGroupBox("Fan Settings")
+        fan_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        fan_layout = QVBoxLayout()
+        fan_layout.setSpacing(10)
+        fan_layout.setContentsMargins(15, 15, 15, 15)
+
+        fan_settings = [
+            "Status: On",
+            "Intensity: 75%",
+            "Duration: 300 seconds",
+            "Interval: 60 minutes"
+        ]
+
+        for setting in fan_settings:
+            setting_label = QLabel(setting)
+            setting_label.setStyleSheet("font-size: 14px;")
+            fan_layout.addWidget(setting_label)
+
+        # Center the edit button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        edit_fan_btn = QPushButton("Edit Fan Settings")
+        edit_fan_btn.clicked.connect(lambda: switch("fan"))
+        edit_fan_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
+        btn_layout.addWidget(edit_fan_btn)
+        btn_layout.addStretch()
+        fan_layout.addLayout(btn_layout)
+
+        fan_group.setLayout(fan_layout)
+        overview_layout.addWidget(fan_group)
+
+        # Camera Settings Overview
+        camera_group = QGroupBox("Camera")
+        camera_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        camera_layout = QVBoxLayout()
+        camera_layout.setSpacing(10)
+        camera_layout.setContentsMargins(15, 15, 15, 15)
+
+        camera_settings = [
+            "Status: On",
+            "Resolution: 1280x720",
+            "Exposure: 50",
+            "Duration: 300 seconds",
+            "Interval: 60 minutes"
+        ]
+
+        for setting in camera_settings:
+            setting_label = QLabel(setting)
+            setting_label.setStyleSheet("font-size: 14px;")
+            camera_layout.addWidget(setting_label)
+
+        # Center the edit button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        edit_camera_btn = QPushButton("Edit Camera Settings")
+        edit_camera_btn.clicked.connect(lambda: switch("camera"))
+        edit_camera_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
+        btn_layout.addWidget(edit_camera_btn)
+        btn_layout.addStretch()
+        camera_layout.addLayout(btn_layout)
+
+        camera_group.setLayout(camera_layout)
+        overview_layout.addWidget(camera_group)
+
+        # Sensor Settings Overview
+        sensor_group = QGroupBox("Atmospheric Sensor")
+        sensor_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        sensor_layout = QVBoxLayout()
+        sensor_layout.setSpacing(10)
+        sensor_layout.setContentsMargins(15, 15, 15, 15)
+
+        sensor_settings = [
+            "Status: On",
+            "Reading Interval: 5 minutes",
+            "Temperature Threshold: 25°C",
+            "Humidity Threshold: 60%",
+            "Duration: 300 seconds",
+            "Interval: 60 minutes"
+        ]
+
+        for setting in sensor_settings:
+            setting_label = QLabel(setting)
+            setting_label.setStyleSheet("font-size: 14px;")
+            sensor_layout.addWidget(setting_label)
+
+        # Center the edit button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        edit_sensor_btn = QPushButton("Edit Sensor Settings")
+        edit_sensor_btn.clicked.connect(lambda: switch("sensor"))
+        edit_sensor_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
+        btn_layout.addWidget(edit_sensor_btn)
+        btn_layout.addStretch()
+        sensor_layout.addLayout(btn_layout)
+
+        sensor_group.setLayout(sensor_layout)
+        overview_layout.addWidget(sensor_group)
+
+        # Schedule Settings Overview (Placeholder)
+        schedule_group = QGroupBox("Schedule")
+        schedule_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        schedule_layout = QVBoxLayout()
+        schedule_layout.setSpacing(10)
+        schedule_layout.setContentsMargins(15, 15, 15, 15)
+
+        schedule_placeholder = QLabel("Schedule Settings will be implemented here.")
+        schedule_placeholder.setStyleSheet("font-size: 14px;")
+        schedule_layout.addWidget(schedule_placeholder)
+
+        # Center the edit button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        edit_schedule_btn = QPushButton("Edit Schedule Settings")
+        edit_schedule_btn.clicked.connect(lambda: switch("schedule"))
+        edit_schedule_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
+        btn_layout.addWidget(edit_schedule_btn)
+        btn_layout.addStretch()
+        schedule_layout.addLayout(btn_layout)
+
+        schedule_group.setLayout(schedule_layout)
+        overview_layout.addWidget(schedule_group)
+
+        # Scroll area for the overview content
+        scroll_area = QScrollArea()
+        scroll_widget = QWidget()
+        scroll_widget.setLayout(overview_layout)
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setMinimumHeight(600)
+
+        self.body.addWidget(scroll_area)
+
+        # Back button
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+        self.body.addWidget(back_btn)
+
 class SchedulePage(BasePage):
     def __init__(self, switch):
         super().__init__("Schedule Settings")
@@ -642,6 +896,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(CameraPage(self.switch_page))
         self.stack.addWidget(SensorPage(self.switch_page))
         self.stack.addWidget(SchedulePage(self.switch_page))
+        self.stack.addWidget(SettingsOverviewPage(self.switch_page))
 
         self.setCentralWidget(self.stack)
 
@@ -672,6 +927,8 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(5)
         elif page_name == "schedule":
             self.stack.setCurrentIndex(6)
+        elif page_name == "overview":
+            self.stack.setCurrentIndex(7)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
