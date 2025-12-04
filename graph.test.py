@@ -22,8 +22,8 @@ class MainWindow(QMainWindow):
         # --- UI ---
         layout = QVBoxLayout()
 
-        self.button = QPushButton("Run Experiment")
-        self.button.clicked.connect(self.run_experiment)
+        self.button = QPushButton("Add Data")
+        self.button.clicked.connect(self.add_data)
 
         self.graph = GraphCanvas(self)
 
@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
         self.setCentralWidget(container)
 
-    def run_experiment(self):
+    def add_data(self):
         # Simulate experiment data collection
         data_x = list(range(50))
         data_y = [random.randint(0, 20) for _ in data_x]
