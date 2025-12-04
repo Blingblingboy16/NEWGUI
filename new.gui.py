@@ -1,5 +1,6 @@
 import sys
 import random
+import csv
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
@@ -76,7 +77,7 @@ class MainPage(BasePage):
         # Data action buttons
         data_btn_layout = QVBoxLayout()
         data_btn_layout.setSpacing(10)
-        view_data_btn = QPushButton("View Latest Data")
+        view_data_btn = QPushButton("View Experiment Graphing")
         view_data_btn.clicked.connect(lambda: switch("graph"))
         export_data_btn = QPushButton("Export Data")
         clear_data_btn = QPushButton("Clear Data")
@@ -903,7 +904,7 @@ class DataGraphPage(BasePage):
         self.graph = GraphCanvas(self)
 
         # Run experiment button
-        run_btn = QPushButton("Generate Data Graph")
+        run_btn = QPushButton("Load Experiment Data")
         style_button(run_btn)
         run_btn.clicked.connect(self.generate_graph)
 
@@ -918,17 +919,52 @@ class DataGraphPage(BasePage):
         self.body.addWidget(back_btn)
 
     def generate_graph(self):
-        # Simulate experiment data collection
-        data_x = list(range(50))
-        data_y = [random.randint(0, 20) for _ in data_x]
+        # Read experiment data from CSV files
+        experiment_data = []
+
+        # Try to read experiment_data_Graph_#1.csv
+        try:
+            with open("experiment_data_Graph_#1.csv", "r") as f:
+                reader = csv.reader(f)
+                next(reader)  # Skip header
+                data1 = [(float(row[0]), float(row[1])) for row in reader]
+                experiment_data.append(("Experiment 1", data1, 'b-', 'o'))
+        except FileNotFoundError:
+            print("experiment_data_Graph_#1.csv not found")
+        except Exception as e:
+            print(f"Error reading experiment_data_Graph_#1.csv: {e}")
+
+        # Try to read experiment_data_Graph_#2.csv
+        try:
+            with open("experiment_data_Graph_#2.csv", "r") as f:
+                reader = csv.reader(f)
+                next(reader)  # Skip header
+                data2 = [(float(row[0]), float(row[1])) for row in reader]
+                experiment_data.append(("Experiment 2", data2, 'r-', 's'))
+        except FileNotFoundError:
+            print("experiment_data_Graph_#2.csv not found")
+        except Exception as e:
+            print(f"Error reading experiment_data_Graph_#2.csv: {e}")
 
         # Plot the data
         self.graph.ax.clear()
-        self.graph.ax.plot(data_x, data_y, 'b-', linewidth=2, markersize=4, marker='o')
-        self.graph.ax.set_title("NanoLab Experiment Results", fontsize=16, fontweight='bold')
-        self.graph.ax.set_xlabel("Time (seconds)", fontsize=14)
-        self.graph.ax.set_ylabel("Sensor Reading", fontsize=14)
-        self.graph.ax.grid(True, alpha=0.3)
+
+        if experiment_data:
+            for name, data, color, marker in experiment_data:
+                if data:
+                    times, lengths = zip(*data)
+                    self.graph.ax.plot(times, lengths, color, linewidth=2, markersize=6, marker=marker, label=name)
+
+            self.graph.ax.set_title("NanoLab Plant Growth Experiments", fontsize=16, fontweight='bold')
+            self.graph.ax.set_xlabel("Time (minutes)", fontsize=14)
+            self.graph.ax.set_ylabel("Plant Length (cm)", fontsize=14)
+            self.graph.ax.grid(True, alpha=0.3)
+            self.graph.ax.legend()
+        else:
+            # Fallback if no data found
+            self.graph.ax.text(0.5, 0.5, "No experiment data found.\nPlease ensure CSV files are in the current directory.",
+                              horizontalalignment='center', verticalalignment='center', transform=self.graph.ax.transAxes)
+
         self.graph.draw()   # refresh canvas
 
 class SchedulePage(BasePage):
