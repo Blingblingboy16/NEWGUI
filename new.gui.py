@@ -1,4 +1,5 @@
 import sys
+import random
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
@@ -6,6 +7,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QColor
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 
 # ----- COLORS -----
 LIGHT_BG = "#f2f7f2"
@@ -19,6 +22,13 @@ def style_button(button):
     button.setMinimumHeight(48)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     # No inline styles needed; handled by global stylesheet
+
+
+class GraphCanvas(FigureCanvasQTAgg):
+    def __init__(self, parent=None):
+        self.fig = Figure(figsize=(8, 6), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        super().__init__(self.fig)
 
 class BasePage(QWidget):
     def __init__(self, title):
@@ -67,6 +77,7 @@ class MainPage(BasePage):
         data_btn_layout = QVBoxLayout()
         data_btn_layout.setSpacing(10)
         view_data_btn = QPushButton("View Latest Data")
+        view_data_btn.clicked.connect(lambda: switch("graph"))
         export_data_btn = QPushButton("Export Data")
         clear_data_btn = QPushButton("Clear Data")
 
@@ -110,7 +121,6 @@ class MainPage(BasePage):
             ("Camera", "camera"),
             ("Sensor", "sensor"),
             ("Schedule", "schedule"),
-            ("Settings Overview", "overview"),
         ]
 
         row, col = 0, 0
@@ -126,12 +136,6 @@ class MainPage(BasePage):
                 row += 1
 
         settings_layout.addLayout(grid)
-
-        # Send to NanoLab button
-        send_btn = QPushButton("Send to NanoLab")
-        style_button(send_btn)
-        send_btn.setMinimumHeight(45)
-        settings_layout.addWidget(send_btn)
         settings_layout.addStretch()
 
         settings_group.setLayout(settings_layout)
@@ -142,6 +146,28 @@ class MainPage(BasePage):
         main_layout.setStretchFactor(settings_group, 1)
 
         self.body.addLayout(main_layout)
+
+        # Bottom section with Settings Overview and Send to NanoLab buttons
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setSpacing(20)
+        bottom_layout.setContentsMargins(20, 20, 20, 20)
+
+        # Settings Overview button
+        overview_btn = QPushButton("Settings Overview")
+        overview_btn.clicked.connect(lambda: switch("overview"))
+        overview_btn.setStyleSheet("font-size: 16px; color: black; background-color: white; border: 1px solid #a8d5a2; border-radius: 4px; padding: 8px; min-height: 40px;")
+        bottom_layout.addWidget(overview_btn)
+
+        # Send to NanoLab button
+        send_btn = QPushButton("Send to NanoLab")
+        send_btn.clicked.connect(lambda: switch("send"))  # Placeholder - you might want to implement this
+        send_btn.setStyleSheet("font-size: 16px; color: black; background-color: white; border: 1px solid #a8d5a2; border-radius: 4px; padding: 8px; min-height: 40px;")
+        bottom_layout.addWidget(send_btn)
+
+        # Center the buttons
+        bottom_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        self.body.addLayout(bottom_layout)
 
 class WaterPumpPage(BasePage):
     def __init__(self, switch):
@@ -869,6 +895,42 @@ class SettingsOverviewPage(BasePage):
         back_btn.clicked.connect(lambda: switch("main"))
         self.body.addWidget(back_btn)
 
+class DataGraphPage(BasePage):
+    def __init__(self, switch):
+        super().__init__("NanoLab Data Visualization")
+
+        # Create graph canvas
+        self.graph = GraphCanvas(self)
+
+        # Run experiment button
+        run_btn = QPushButton("Generate Data Graph")
+        style_button(run_btn)
+        run_btn.clicked.connect(self.generate_graph)
+
+        # Back to Main button
+        back_btn = QPushButton("Back to Main")
+        style_button(back_btn)
+        back_btn.clicked.connect(lambda: switch("main"))
+
+        # Add widgets to layout
+        self.body.addWidget(self.graph)
+        self.body.addWidget(run_btn)
+        self.body.addWidget(back_btn)
+
+    def generate_graph(self):
+        # Simulate experiment data collection
+        data_x = list(range(50))
+        data_y = [random.randint(0, 20) for _ in data_x]
+
+        # Plot the data
+        self.graph.ax.clear()
+        self.graph.ax.plot(data_x, data_y, 'b-', linewidth=2, markersize=4, marker='o')
+        self.graph.ax.set_title("NanoLab Experiment Results", fontsize=16, fontweight='bold')
+        self.graph.ax.set_xlabel("Time (seconds)", fontsize=14)
+        self.graph.ax.set_ylabel("Sensor Reading", fontsize=14)
+        self.graph.ax.grid(True, alpha=0.3)
+        self.graph.draw()   # refresh canvas
+
 class SchedulePage(BasePage):
     def __init__(self, switch):
         super().__init__("Schedule Settings")
@@ -895,6 +957,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(FanSettingsPage(self.switch_page))
         self.stack.addWidget(CameraPage(self.switch_page))
         self.stack.addWidget(SensorPage(self.switch_page))
+        self.stack.addWidget(DataGraphPage(self.switch_page))
         self.stack.addWidget(SchedulePage(self.switch_page))
         self.stack.addWidget(SettingsOverviewPage(self.switch_page))
 
@@ -925,10 +988,12 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(4)
         elif page_name == "sensor":
             self.stack.setCurrentIndex(5)
-        elif page_name == "schedule":
+        elif page_name == "graph":
             self.stack.setCurrentIndex(6)
-        elif page_name == "overview":
+        elif page_name == "schedule":
             self.stack.setCurrentIndex(7)
+        elif page_name == "overview":
+            self.stack.setCurrentIndex(8)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
