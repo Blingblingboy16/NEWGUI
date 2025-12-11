@@ -4,9 +4,10 @@ import csv
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
-    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea
+    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QCalendarWidget, QTimeEdit
 )
-from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtCore import Qt, QDate, QTime, QDateTime
+
 from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -169,6 +170,7 @@ class MainPage(BasePage):
         bottom_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.body.addLayout(bottom_layout)
+        
 
 class WaterPumpPage(BasePage):
     def __init__(self, switch):
@@ -894,16 +896,26 @@ class SettingsOverviewPage(BasePage):
         sensor_group.setLayout(sensor_layout)
         overview_layout.addWidget(sensor_group)
 
-        # Schedule Settings Overview (Placeholder)
+        # Schedule Settings Overview
         schedule_group = QGroupBox("Schedule")
         schedule_group.setStyleSheet("font-size: 16px; font-weight: bold;")
         schedule_layout = QVBoxLayout()
         schedule_layout.setSpacing(10)
         schedule_layout.setContentsMargins(15, 15, 15, 15)
 
-        schedule_placeholder = QLabel("Schedule Settings will be implemented here.")
-        schedule_placeholder.setStyleSheet("font-size: 14px;")
-        schedule_layout.addWidget(schedule_placeholder)
+        self.schedule_labels = []
+        schedule_settings_texts = [
+            "Start Date: Today",
+            "Start Time: 9:00 AM",
+            "End Date: Tomorrow",
+            "End Time: 5:00 PM"
+        ]
+
+        for text in schedule_settings_texts:
+            setting_label = QLabel(text)
+            setting_label.setStyleSheet("font-size: 14px;")
+            schedule_layout.addWidget(setting_label)
+            self.schedule_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -1124,16 +1136,133 @@ class DataGraphPage(BasePage):
 
 class SchedulePage(BasePage):
     def __init__(self, switch):
-        super().__init__("Schedule Settings")
+        super().__init__("Experiment Schedule Settings")
 
-        # Placeholder content
-        label = QLabel("Schedule Settings will be implemented here.")
-        self.body.addWidget(label)
+        # Experiment Duration Group
+        duration_group = QGroupBox("Experiment Duration")
+        duration_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        duration_layout = QVBoxLayout()
+        duration_layout.setSpacing(15)
+        duration_layout.setContentsMargins(20, 20, 20, 20)
+
+        # Start date and time
+        start_layout = QHBoxLayout()
+        start_layout.setSpacing(15)
+        start_label = QLabel("Start:")
+        start_label.setStyleSheet("font-size: 14px; font-weight: bold; min-width: 60px;")
+        self.start_date_edit = QDateEdit()
+        self.start_date_edit.setDate(QDate.currentDate())
+        self.start_date_edit.setCalendarPopup(True)
+        start_date_label = QLabel("Date:")
+        start_date_label.setStyleSheet("font-size: 12px;")
+        start_time_label = QLabel("Time:")
+        start_time_label.setStyleSheet("font-size: 12px;")
+        self.start_time_edit = QTimeEdit()
+        self.start_time_edit.setTime(QTime(9, 0))  # 9:00 AM
+
+        start_date_layout = QVBoxLayout()
+        start_date_layout.addWidget(start_date_label)
+        start_date_layout.addWidget(self.start_date_edit)
+
+        start_time_layout = QVBoxLayout()
+        start_time_layout.addWidget(start_time_label)
+        start_time_layout.addWidget(self.start_time_edit)
+
+        start_layout.addWidget(start_label)
+        start_layout.addLayout(start_date_layout)
+        start_layout.addLayout(start_time_layout)
+        start_layout.addStretch()
+
+        duration_layout.addLayout(start_layout)
+
+        # End date and time
+        end_layout = QHBoxLayout()
+        end_layout.setSpacing(15)
+        end_label = QLabel("End:")
+        end_label.setStyleSheet("font-size: 14px; font-weight: bold; min-width: 60px;")
+        self.end_date_edit = QDateEdit()
+        self.end_date_edit.setDate(QDate.currentDate().addDays(1))
+        self.end_date_edit.setCalendarPopup(True)
+        end_date_label = QLabel("Date:")
+        end_date_label.setStyleSheet("font-size: 12px;")
+        end_time_label = QLabel("Time:")
+        end_time_label.setStyleSheet("font-size: 12px;")
+        self.end_time_edit = QTimeEdit()
+        self.end_time_edit.setTime(QTime(17, 0))  # 5:00 PM
+
+        end_date_layout = QVBoxLayout()
+        end_date_layout.addWidget(end_date_label)
+        end_date_layout.addWidget(self.end_date_edit)
+
+        end_time_layout = QVBoxLayout()
+        end_time_layout.addWidget(end_time_label)
+        end_time_layout.addWidget(self.end_time_edit)
+
+        end_layout.addWidget(end_label)
+        end_layout.addLayout(end_date_layout)
+        end_layout.addLayout(end_time_layout)
+        end_layout.addStretch()
+
+        duration_layout.addLayout(end_layout)
+
+        duration_group.setLayout(duration_layout)
+        self.body.addWidget(duration_group)
+
+        # Calendar widget for visual selection
+        calendar_group = QGroupBox("Calendar Selection")
+        calendar_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        calendar_layout = QVBoxLayout()
+        calendar_layout.setSpacing(10)
+        calendar_layout.setContentsMargins(20, 20, 20, 20)
+
+        calendar_label = QLabel("Click on a date to quickly set start or end date:")
+        calendar_label.setStyleSheet("font-size: 14px;")
+        self.calendar = QCalendarWidget()
+        self.calendar.setGridVisible(True)
+        self.calendar.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
+        self.calendar.clicked.connect(self.calendar_date_selected)
+
+        calendar_layout.addWidget(calendar_label)
+        calendar_layout.addWidget(self.calendar)
+        calendar_group.setLayout(calendar_layout)
+        self.body.addWidget(calendar_group)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        btn_layout.setContentsMargins(20, 20, 20, 20)
+
+        apply_btn = QPushButton("Apply Schedule Settings")
+        apply_btn.clicked.connect(self.apply_schedule)
+        apply_btn.setStyleSheet("font-size: 16px; padding: 12px 24px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
 
         back_btn = QPushButton("Back to Main")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
-        self.body.addWidget(back_btn)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        btn_layout.addStretch()
+
+        self.body.addLayout(btn_layout)
+
+    def calendar_date_selected(self, date):
+        # When a date is selected from calendar, update the start or end date based on context
+        # For simplicity, update start date if it's before current start, else update end date
+        if date < self.start_date_edit.date():
+            self.start_date_edit.setDate(date)
+        else:
+            self.end_date_edit.setDate(date)
+
+    def apply_schedule(self):
+        main_window = self.parent().parent()
+        main_window.schedule_start_date = self.start_date_edit.date()
+        main_window.schedule_start_time = self.start_time_edit.time()
+        main_window.schedule_end_date = self.end_date_edit.date()
+        main_window.schedule_end_time = self.end_time_edit.time()
+        print("Schedule settings applied")
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -1185,7 +1314,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(SensorPage(self.switch_page))
         self.stack.addWidget(DataGraphPage(self.switch_page))
         self.stack.addWidget(SchedulePage(self.switch_page))
-        self.stack.addWidget(SettingsOverviewPage(self.switch_page, self))
+
+
 
         # Navigation bar
         nav_toolbar = self.addToolBar("Navigation")
