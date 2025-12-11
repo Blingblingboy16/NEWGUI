@@ -255,7 +255,7 @@ class WaterPumpPage(BasePage):
         apply_btn = QPushButton("Apply Settings")
         apply_btn.clicked.connect(self.apply_water_pump)
         apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
-        back_btn = QPushButton("Back to Main")
+        back_btn = QPushButton("Return to Homepage")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
 
@@ -264,7 +264,12 @@ class WaterPumpPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def apply_water_pump(self):
-        # Placeholder for applying settings
+        main_window = self.parent().parent()
+        main_window.water_pump_status = self.pump_toggle.isChecked()
+        main_window.water_pump_speed = self.speed_slider.value()
+        main_window.water_pump_flow = self.flow_spinbox.value()
+        main_window.water_pump_duration = self.duration_spinbox.value()
+        main_window.water_pump_interval = self.run_interval_spinbox.value()
         print("Water pump settings applied")
 
 class LEDSettingsPage(BasePage):
@@ -382,7 +387,12 @@ class LEDSettingsPage(BasePage):
             self.hex_input.setText(color.name().upper())
 
     def apply_led(self):
-        # Placeholder for applying settings
+        main_window = self.parent().parent()
+        main_window.led_status = self.led_toggle.isChecked()
+        main_window.led_brightness = self.brightness_slider.value()
+        main_window.led_color = self.hex_input.text()
+        main_window.led_duration = self.duration_spinbox.value()
+        main_window.led_interval = self.run_interval_spinbox.value()
         print("LED settings applied")
 
 class FanSettingsPage(BasePage):
@@ -464,7 +474,11 @@ class FanSettingsPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def apply_fan(self):
-        # Placeholder for applying settings
+        main_window = self.parent().parent()
+        main_window.fan_status = self.fan_toggle.isChecked()
+        main_window.fan_intensity = self.intensity_slider.value()
+        main_window.fan_duration = self.duration_spinbox.value()
+        main_window.fan_interval = self.run_interval_spinbox.value()
         print("Fan settings applied")
 
 class CameraPage(BasePage):
@@ -560,7 +574,12 @@ class CameraPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def apply_camera(self):
-        # Placeholder for applying settings
+        main_window = self.parent().parent()
+        main_window.camera_status = self.camera_toggle.isChecked()
+        main_window.camera_resolution = self.resolution_combo.currentText()
+        main_window.camera_exposure = self.exposure_slider.value()
+        main_window.camera_duration = self.duration_spinbox.value()
+        main_window.camera_interval = self.run_interval_spinbox.value()
         print("Camera settings applied")
 
 class SensorPage(BasePage):
@@ -670,12 +689,21 @@ class SensorPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def apply_sensor(self):
-        # Placeholder for applying settings
+        main_window = self.parent().parent()
+        main_window.sensor_status = self.sensor_toggle.isChecked()
+        main_window.sensor_reading_interval = self.interval_spinbox.value()
+        main_window.sensor_temp_threshold = self.temp_spinbox.value()
+        main_window.sensor_humidity_threshold = self.humidity_spinbox.value()
+        main_window.sensor_duration = self.duration_spinbox.value()
+        main_window.sensor_interval = self.run_interval_spinbox.value()
         print("Sensor settings applied")
 
 class SettingsOverviewPage(BasePage):
-    def __init__(self, switch):
+    def __init__(self, switch, main_window):
         super().__init__("Settings Overview")
+
+        # Get main window reference
+        self.main_window = main_window
 
         # Back to Main button at the top
         back_layout = QHBoxLayout()
@@ -698,7 +726,8 @@ class SettingsOverviewPage(BasePage):
         water_layout.setSpacing(10)
         water_layout.setContentsMargins(15, 15, 15, 15)
 
-        water_settings = [
+        self.water_labels = []
+        water_settings_texts = [
             "Status: On",
             "Speed: 50%",
             "Flow Rate: 10 L/min",
@@ -706,10 +735,11 @@ class SettingsOverviewPage(BasePage):
             "Interval: 60 minutes"
         ]
 
-        for setting in water_settings:
-            setting_label = QLabel(setting)
+        for text in water_settings_texts:
+            setting_label = QLabel(text)
             setting_label.setStyleSheet("font-size: 14px;")
             water_layout.addWidget(setting_label)
+            self.water_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -731,7 +761,8 @@ class SettingsOverviewPage(BasePage):
         led_layout.setSpacing(10)
         led_layout.setContentsMargins(15, 15, 15, 15)
 
-        led_settings = [
+        self.led_labels = []
+        led_settings_texts = [
             "Status: On",
             "Brightness: 70%",
             "Color: #FFFFFF",
@@ -739,10 +770,11 @@ class SettingsOverviewPage(BasePage):
             "Interval: 60 minutes"
         ]
 
-        for setting in led_settings:
-            setting_label = QLabel(setting)
+        for text in led_settings_texts:
+            setting_label = QLabel(text)
             setting_label.setStyleSheet("font-size: 14px;")
             led_layout.addWidget(setting_label)
+            self.led_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -764,17 +796,19 @@ class SettingsOverviewPage(BasePage):
         fan_layout.setSpacing(10)
         fan_layout.setContentsMargins(15, 15, 15, 15)
 
-        fan_settings = [
+        self.fan_labels = []
+        fan_settings_texts = [
             "Status: On",
             "Intensity: 75%",
             "Duration: 300 seconds",
             "Interval: 60 minutes"
         ]
 
-        for setting in fan_settings:
-            setting_label = QLabel(setting)
+        for text in fan_settings_texts:
+            setting_label = QLabel(text)
             setting_label.setStyleSheet("font-size: 14px;")
             fan_layout.addWidget(setting_label)
+            self.fan_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -796,7 +830,8 @@ class SettingsOverviewPage(BasePage):
         camera_layout.setSpacing(10)
         camera_layout.setContentsMargins(15, 15, 15, 15)
 
-        camera_settings = [
+        self.camera_labels = []
+        camera_settings_texts = [
             "Status: On",
             "Resolution: 1280x720",
             "Exposure: 50",
@@ -804,10 +839,11 @@ class SettingsOverviewPage(BasePage):
             "Interval: 60 minutes"
         ]
 
-        for setting in camera_settings:
-            setting_label = QLabel(setting)
+        for text in camera_settings_texts:
+            setting_label = QLabel(text)
             setting_label.setStyleSheet("font-size: 14px;")
             camera_layout.addWidget(setting_label)
+            self.camera_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -829,7 +865,8 @@ class SettingsOverviewPage(BasePage):
         sensor_layout.setSpacing(10)
         sensor_layout.setContentsMargins(15, 15, 15, 15)
 
-        sensor_settings = [
+        self.sensor_labels = []
+        sensor_settings_texts = [
             "Status: On",
             "Reading Interval: 5 minutes",
             "Temperature Threshold: 25°C",
@@ -838,10 +875,11 @@ class SettingsOverviewPage(BasePage):
             "Interval: 60 minutes"
         ]
 
-        for setting in sensor_settings:
-            setting_label = QLabel(setting)
+        for text in sensor_settings_texts:
+            setting_label = QLabel(text)
             setting_label.setStyleSheet("font-size: 14px;")
             sensor_layout.addWidget(setting_label)
+            self.sensor_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -896,6 +934,42 @@ class SettingsOverviewPage(BasePage):
         back_btn.clicked.connect(lambda: switch("main"))
         self.body.addWidget(back_btn)
 
+    def update_labels(self):
+        # Update water pump labels
+        self.water_labels[0].setText(f"Status: {'On' if self.main_window.water_pump_status else 'Off'}")
+        self.water_labels[1].setText(f"Speed: {self.main_window.water_pump_speed}%")
+        self.water_labels[2].setText(f"Flow Rate: {self.main_window.water_pump_flow} L/min")
+        self.water_labels[3].setText(f"Duration: {self.main_window.water_pump_duration} seconds")
+        self.water_labels[4].setText(f"Interval: {self.main_window.water_pump_interval} minutes")
+
+        # Update LED labels
+        self.led_labels[0].setText(f"Status: {'On' if self.main_window.led_status else 'Off'}")
+        self.led_labels[1].setText(f"Brightness: {self.main_window.led_brightness}%")
+        self.led_labels[2].setText(f"Color: {self.main_window.led_color.upper()}")
+        self.led_labels[3].setText(f"Duration: {self.main_window.led_duration} seconds")
+        self.led_labels[4].setText(f"Interval: {self.main_window.led_interval} minutes")
+
+        # Update fan labels
+        self.fan_labels[0].setText(f"Status: {'On' if self.main_window.fan_status else 'Off'}")
+        self.fan_labels[1].setText(f"Intensity: {self.main_window.fan_intensity}%")
+        self.fan_labels[2].setText(f"Duration: {self.main_window.fan_duration} seconds")
+        self.fan_labels[3].setText(f"Interval: {self.main_window.fan_interval} minutes")
+
+        # Update camera labels
+        self.camera_labels[0].setText(f"Status: {'On' if self.main_window.camera_status else 'Off'}")
+        self.camera_labels[1].setText(f"Resolution: {self.main_window.camera_resolution}")
+        self.camera_labels[2].setText(f"Exposure: {self.main_window.camera_exposure}")
+        self.camera_labels[3].setText(f"Duration: {self.main_window.camera_duration} seconds")
+        self.camera_labels[4].setText(f"Interval: {self.main_window.camera_interval} minutes")
+
+        # Update sensor labels
+        self.sensor_labels[0].setText(f"Status: {'On' if self.main_window.sensor_status else 'Off'}")
+        self.sensor_labels[1].setText(f"Reading Interval: {self.main_window.sensor_reading_interval} minutes")
+        self.sensor_labels[2].setText(f"Temperature Threshold: {self.main_window.sensor_temp_threshold}°C")
+        self.sensor_labels[3].setText(f"Humidity Threshold: {self.main_window.sensor_humidity_threshold}%")
+        self.sensor_labels[4].setText(f"Duration: {self.main_window.sensor_duration} seconds")
+        self.sensor_labels[5].setText(f"Interval: {self.main_window.sensor_interval} minutes")
+
 class DataGraphPage(BasePage):
     def __init__(self, switch):
         super().__init__("NanoLab Data Visualization")
@@ -903,22 +977,64 @@ class DataGraphPage(BasePage):
         # Create graph canvas
         self.graph = GraphCanvas(self)
 
+        # Manual data entry
+        manual_layout = QHBoxLayout()
+        manual_layout.setSpacing(15)
+        manual_layout.addWidget(QLabel("Length of your plant (cm):"))
+        self.length_input = QLineEdit()
+        self.length_input.setPlaceholderText("Enter plant length")
+        manual_layout.addWidget(self.length_input)
+        add_btn = QPushButton("Add Data Point")
+        add_btn.clicked.connect(self.add_data_point)
+        manual_layout.addWidget(add_btn)
+        self.body.addLayout(manual_layout)
+
+        # Interval display
+        self.interval_label = QLabel("Last interval: N/A")
+        self.interval_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.body.addWidget(self.interval_label)
+
         # Run experiment button
         run_btn = QPushButton("Load Experiment Data")
         style_button(run_btn)
-        run_btn.clicked.connect(self.generate_graph)
+        run_btn.clicked.connect(self.update_graph)
 
-        # Back to Main button
+        # Buttons layout (similar to other pages)
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Settings")
+        apply_btn.clicked.connect(self.apply_settings)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
         back_btn = QPushButton("Back to Main")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
 
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+
         # Add widgets to layout
         self.body.addWidget(self.graph)
         self.body.addWidget(run_btn)
-        self.body.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
 
-    def generate_graph(self):
+        # Initialize manual data storage
+        import time
+        self.start_time = time.time()
+        self.times = []
+        self.lengths = []
+        self.csv_filename = "experiment_data_manual.csv"
+
+        # Create CSV header if not exists
+        try:
+            with open(self.csv_filename, "r") as f:
+                pass
+        except FileNotFoundError:
+            with open(self.csv_filename, "w", newline="") as f:
+                import csv
+                writer = csv.writer(f)
+                writer.writerow(["Time (minutes)", "Plant Length (cm)"])
+
+    def update_graph(self):
         # Read experiment data from CSV files
         experiment_data = []
 
@@ -949,12 +1065,20 @@ class DataGraphPage(BasePage):
         # Plot the data
         self.graph.ax.clear()
 
+        has_data = False
         if experiment_data:
             for name, data, color, marker in experiment_data:
                 if data:
                     times, lengths = zip(*data)
                     self.graph.ax.plot(times, lengths, color, linewidth=2, markersize=6, marker=marker, label=name)
+                    has_data = True
 
+        # Plot manual data
+        if self.lengths:
+            self.graph.ax.plot(self.times, self.lengths, 'g-', linewidth=2, markersize=6, marker='^', label="Manual Data")
+            has_data = True
+
+        if has_data:
             self.graph.ax.set_title("NanoLab Plant Growth Experiments", fontsize=16, fontweight='bold')
             self.graph.ax.set_xlabel("Time (minutes)", fontsize=14)
             self.graph.ax.set_ylabel("Plant Length (cm)", fontsize=14)
@@ -966,6 +1090,37 @@ class DataGraphPage(BasePage):
                               horizontalalignment='center', verticalalignment='center', transform=self.graph.ax.transAxes)
 
         self.graph.draw()   # refresh canvas
+
+    def add_data_point(self):
+        try:
+            length = float(self.length_input.text())
+            if length < 0:
+                return
+        except ValueError:
+            return
+
+        import time
+        elapsed_minutes = round((time.time() - self.start_time) / 60, 2)
+        self.times.append(elapsed_minutes)
+        self.lengths.append(length)
+
+        with open(self.csv_filename, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([elapsed_minutes, length])
+
+        # Update interval display
+        if len(self.times) > 1:
+            last_interval = self.times[-1] - self.times[-2]
+            self.interval_label.setText(f"Last interval: {last_interval:.2f} minutes")
+        else:
+            self.interval_label.setText("Last interval: N/A (first point)")
+
+        self.length_input.clear()
+        self.update_graph()
+
+    def apply_settings(self):
+        # Save manual data settings or confirm
+        print("Graph settings applied - manual data saved")
 
 class SchedulePage(BasePage):
     def __init__(self, switch):
@@ -986,6 +1141,41 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Auxora NanoLab Control")
         self.setGeometry(100, 100, 1200, 800)
 
+        # Navigation history
+        self.page_history = []
+        self.current_history_index = -1
+
+        # Settings storage
+        self.water_pump_status = True
+        self.water_pump_speed = 50
+        self.water_pump_flow = 10
+        self.water_pump_duration = 300
+        self.water_pump_interval = 60
+
+        self.led_status = True
+        self.led_brightness = 70
+        self.led_color = "#ffffff"
+        self.led_duration = 300
+        self.led_interval = 60
+
+        self.fan_status = True
+        self.fan_intensity = 75
+        self.fan_duration = 300
+        self.fan_interval = 60
+
+        self.camera_status = True
+        self.camera_resolution = "1280x720"
+        self.camera_exposure = 50
+        self.camera_duration = 300
+        self.camera_interval = 60
+
+        self.sensor_status = True
+        self.sensor_reading_interval = 5
+        self.sensor_temp_threshold = 25
+        self.sensor_humidity_threshold = 60
+        self.sensor_duration = 300
+        self.sensor_interval = 60
+
         self.stack = QStackedWidget()
         self.stack.addWidget(MainPage(self.switch_page))
         self.stack.addWidget(WaterPumpPage(self.switch_page))
@@ -995,7 +1185,35 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(SensorPage(self.switch_page))
         self.stack.addWidget(DataGraphPage(self.switch_page))
         self.stack.addWidget(SchedulePage(self.switch_page))
-        self.stack.addWidget(SettingsOverviewPage(self.switch_page))
+        self.stack.addWidget(SettingsOverviewPage(self.switch_page, self))
+
+        # Navigation bar
+        nav_toolbar = self.addToolBar("Navigation")
+        self.back_btn = QPushButton("← Back")
+        self.back_btn.clicked.connect(self.go_back)
+        style_button(self.back_btn)
+        self.forward_btn = QPushButton("Forward →")
+        self.forward_btn.clicked.connect(self.go_forward)
+        style_button(self.forward_btn)
+        self.save_btn = QPushButton("Save Changes")
+        self.save_btn.clicked.connect(self.save_changes)
+        style_button(self.save_btn)
+
+        spacer_left = QWidget()
+        spacer_left.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        nav_toolbar.addWidget(spacer_left)
+
+        nav_toolbar.addWidget(self.back_btn)
+        nav_toolbar.addSeparator()
+        nav_toolbar.addWidget(self.forward_btn)
+        nav_toolbar.addSeparator()
+        nav_toolbar.addWidget(self.save_btn)
+
+        spacer_right = QWidget()
+        spacer_right.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        nav_toolbar.addWidget(spacer_right)
+
+        self.update_navigation_buttons()
 
         self.setCentralWidget(self.stack)
 
@@ -1012,24 +1230,63 @@ class MainWindow(QMainWindow):
         """)
 
     def switch_page(self, page_name):
-        if page_name == "main":
-            self.stack.setCurrentIndex(0)
-        elif page_name == "water":
-            self.stack.setCurrentIndex(1)
-        elif page_name == "led":
-            self.stack.setCurrentIndex(2)
-        elif page_name == "fan":
-            self.stack.setCurrentIndex(3)
-        elif page_name == "camera":
-            self.stack.setCurrentIndex(4)
-        elif page_name == "sensor":
-            self.stack.setCurrentIndex(5)
-        elif page_name == "graph":
-            self.stack.setCurrentIndex(6)
-        elif page_name == "schedule":
-            self.stack.setCurrentIndex(7)
-        elif page_name == "overview":
-            self.stack.setCurrentIndex(8)
+        # Map page names to indices
+        page_map = {
+            "main": 0,
+            "water": 1,
+            "led": 2,
+            "fan": 3,
+            "camera": 4,
+            "sensor": 5,
+            "graph": 6,
+            "schedule": 7,
+            "overview": 8
+        }
+        if page_name in page_map:
+            index = page_map[page_name]
+            # Add to history
+            if self.current_history_index == -1 or self.page_history[self.current_history_index] != index:
+                # Remove future history if going to new page
+                self.page_history = self.page_history[:self.current_history_index + 1]
+                self.page_history.append(index)
+                self.current_history_index += 1
+            self.stack.setCurrentIndex(index)
+            self.update_navigation_buttons()
+
+    def go_back(self):
+        if self.current_history_index > 0:
+            self.current_history_index -= 1
+            self.stack.setCurrentIndex(self.page_history[self.current_history_index])
+            self.update_navigation_buttons()
+
+    def go_forward(self):
+        if self.current_history_index < len(self.page_history) - 1:
+            self.current_history_index += 1
+            self.stack.setCurrentIndex(self.page_history[self.current_history_index])
+            self.update_navigation_buttons()
+
+    def save_changes(self):
+        current_index = self.stack.currentIndex()
+        current_widget = self.stack.widget(current_index)
+        # Try to call apply method if exists
+        if hasattr(current_widget, 'apply_water_pump'):
+            current_widget.apply_water_pump()
+        elif hasattr(current_widget, 'apply_led'):
+            current_widget.apply_led()
+        elif hasattr(current_widget, 'apply_fan'):
+            current_widget.apply_fan()
+        elif hasattr(current_widget, 'apply_camera'):
+            current_widget.apply_camera()
+        elif hasattr(current_widget, 'apply_sensor'):
+            current_widget.apply_sensor()
+        elif hasattr(current_widget, 'apply_settings'):
+            current_widget.apply_settings()
+        else:
+            print("No apply method for current page")
+
+    def update_navigation_buttons(self):
+        self.back_btn.setEnabled(self.current_history_index > 0)
+        self.forward_btn.setEnabled(self.current_history_index < len(self.page_history) - 1)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
