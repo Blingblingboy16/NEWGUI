@@ -1,10 +1,12 @@
 import sys
 import random
 import csv
+import os
+import numpy as np
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
-    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea
+    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QInputDialog, QTabWidget
 )
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QColor
@@ -30,6 +32,10 @@ class GraphCanvas(FigureCanvasQTAgg):
         self.fig = Figure(figsize=(8, 6), dpi=100)
         self.ax = self.fig.add_subplot(111)
         super().__init__(self.fig)
+
+    def wheelEvent(self, event):
+        # Do not accept wheel events to allow scrolling on the page
+        event.ignore()
 
 class BasePage(QWidget):
     def __init__(self, title):
@@ -255,7 +261,7 @@ class WaterPumpPage(BasePage):
         apply_btn = QPushButton("Apply Settings")
         apply_btn.clicked.connect(self.apply_water_pump)
         apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
-        back_btn = QPushButton("Return to Homepage")
+        back_btn = QPushButton("Back to Main")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
 
@@ -644,6 +650,62 @@ class SensorPage(BasePage):
 
         self.body.addLayout(humidity_layout)
 
+        # USC Sensor status toggle
+        usc_status_layout = QHBoxLayout()
+        usc_status_layout.setSpacing(15)
+        usc_status_label = QLabel("USC Sensor Status:")
+        usc_status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.usc_toggle = QCheckBox("On/Off")
+        self.usc_toggle.setChecked(True)
+        usc_status_layout.addWidget(usc_status_label)
+        usc_status_layout.addWidget(self.usc_toggle)
+        usc_status_layout.addStretch()
+
+        self.body.addLayout(usc_status_layout)
+
+        # USC threshold
+        usc_layout = QHBoxLayout()
+        usc_layout.setSpacing(15)
+        usc_label = QLabel("USC Threshold (cm):")
+        usc_label.setStyleSheet("font-size: 14px;")
+        self.usc_spinbox = QSpinBox()
+        self.usc_spinbox.setMinimum(0)
+        self.usc_spinbox.setMaximum(100)
+        self.usc_spinbox.setValue(10)
+        usc_layout.addWidget(usc_label)
+        usc_layout.addWidget(self.usc_spinbox)
+        usc_layout.addStretch()
+
+        self.body.addLayout(usc_layout)
+
+        # VOC Sensor status toggle
+        voc_status_layout = QHBoxLayout()
+        voc_status_layout.setSpacing(15)
+        voc_status_label = QLabel("VOC Sensor Status:")
+        voc_status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.voc_toggle = QCheckBox("On/Off")
+        self.voc_toggle.setChecked(True)
+        voc_status_layout.addWidget(voc_status_label)
+        voc_status_layout.addWidget(self.voc_toggle)
+        voc_status_layout.addStretch()
+
+        self.body.addLayout(voc_status_layout)
+
+        # VOC threshold
+        voc_layout = QHBoxLayout()
+        voc_layout.setSpacing(15)
+        voc_label = QLabel("VOC Threshold (ppm):")
+        voc_label.setStyleSheet("font-size: 14px;")
+        self.voc_spinbox = QSpinBox()
+        self.voc_spinbox.setMinimum(0)
+        self.voc_spinbox.setMaximum(100)
+        self.voc_spinbox.setValue(5)
+        voc_layout.addWidget(voc_label)
+        voc_layout.addWidget(self.voc_spinbox)
+        voc_layout.addStretch()
+
+        self.body.addLayout(voc_layout)
+
         # Duration settings
         duration_layout = QHBoxLayout()
         duration_layout.setSpacing(15)
@@ -694,6 +756,10 @@ class SensorPage(BasePage):
         main_window.sensor_reading_interval = self.interval_spinbox.value()
         main_window.sensor_temp_threshold = self.temp_spinbox.value()
         main_window.sensor_humidity_threshold = self.humidity_spinbox.value()
+        main_window.usc_status = self.usc_toggle.isChecked()
+        main_window.usc_threshold = self.usc_spinbox.value()
+        main_window.voc_status = self.voc_toggle.isChecked()
+        main_window.voc_threshold = self.voc_spinbox.value()
         main_window.sensor_duration = self.duration_spinbox.value()
         main_window.sensor_interval = self.run_interval_spinbox.value()
         print("Sensor settings applied")
@@ -708,9 +774,9 @@ class SettingsOverviewPage(BasePage):
         # Back to Main button at the top
         back_layout = QHBoxLayout()
         back_layout.addStretch()
-        back_btn = QPushButton("Back to Main Page")
+        back_btn = QPushButton("Back to Main")
         back_btn.clicked.connect(lambda: switch("main"))
-        back_btn.setStyleSheet("font-size: 16px; padding: 12px 24px; background-color: #2f4f2d; border: none; border-radius: 6px;")
+        style_button(back_btn)
         back_layout.addWidget(back_btn)
         back_layout.addStretch()
         self.body.addLayout(back_layout)
@@ -871,6 +937,10 @@ class SettingsOverviewPage(BasePage):
             "Reading Interval: 5 minutes",
             "Temperature Threshold: 25°C",
             "Humidity Threshold: 60%",
+            "USC Status: On",
+            "USC Threshold: 10 cm",
+            "VOC Status: On",
+            "VOC Threshold: 5 ppm",
             "Duration: 300 seconds",
             "Interval: 60 minutes"
         ]
@@ -967,19 +1037,74 @@ class SettingsOverviewPage(BasePage):
         self.sensor_labels[1].setText(f"Reading Interval: {self.main_window.sensor_reading_interval} minutes")
         self.sensor_labels[2].setText(f"Temperature Threshold: {self.main_window.sensor_temp_threshold}°C")
         self.sensor_labels[3].setText(f"Humidity Threshold: {self.main_window.sensor_humidity_threshold}%")
-        self.sensor_labels[4].setText(f"Duration: {self.main_window.sensor_duration} seconds")
-        self.sensor_labels[5].setText(f"Interval: {self.main_window.sensor_interval} minutes")
+        self.sensor_labels[4].setText(f"USC Status: {'On' if self.main_window.usc_status else 'Off'}")
+        self.sensor_labels[5].setText(f"USC Threshold: {self.main_window.usc_threshold} cm")
+        self.sensor_labels[6].setText(f"VOC Status: {'On' if self.main_window.voc_status else 'Off'}")
+        self.sensor_labels[7].setText(f"VOC Threshold: {self.main_window.voc_threshold} ppm")
+        self.sensor_labels[8].setText(f"Duration: {self.main_window.sensor_duration} seconds")
+        self.sensor_labels[9].setText(f"Interval: {self.main_window.sensor_interval} minutes")
 
 class DataGraphPage(BasePage):
     def __init__(self, switch):
         super().__init__("NanoLab Data Visualization")
 
+        # Create tab widget
+        self.tabs = QTabWidget()
+        self.body.addWidget(self.tabs)
+
+        # Plant Growth Tab
+        plant_tab = QWidget()
+        plant_layout = QVBoxLayout(plant_tab)
+
+        # Experiment selection
+        experiment_layout = QHBoxLayout()
+        experiment_layout.setSpacing(15)
+        experiment_layout.addWidget(QLabel("Select Experiment:"))
+        self.experiment_combo = QComboBox()
+        self.experiment_combo.setMinimumHeight(40)
+        experiment_layout.addWidget(self.experiment_combo)
+        new_exp_btn = QPushButton("New Experiment")
+        new_exp_btn.clicked.connect(self.create_new_experiment)
+        experiment_layout.addWidget(new_exp_btn)
+        experiment_layout.addStretch()
+        plant_layout.addLayout(experiment_layout)
+
         # Create graph canvas
-        self.graph = GraphCanvas(self)
+        self.plant_graph = GraphCanvas(self)
+
+        # Interval display
+        self.interval_label = QLabel("Last interval: N/A")
+        self.interval_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        plant_layout.addWidget(self.interval_label)
+
+        # Run experiment button
+        run_btn = QPushButton("Load Experiment Data")
+        style_button(run_btn)
+        run_btn.clicked.connect(self.update_plant_graph)
+
+        # Reset graph button
+        reset_btn = QPushButton("Reset Graph")
+        style_button(reset_btn)
+        reset_btn.clicked.connect(self.reset_graph)
+
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(20)
+        button_layout.addWidget(run_btn)
+        button_layout.addWidget(reset_btn)
+        button_layout.addStretch()
+        plant_layout.addLayout(button_layout)
+
+        # Add plant graph
+        plant_layout.addWidget(self.plant_graph)
 
         # Manual data entry
         manual_layout = QHBoxLayout()
         manual_layout.setSpacing(15)
+        manual_layout.addWidget(QLabel("Time Since Start of Experiment (hours):"))
+        self.time_input = QLineEdit()
+        self.time_input.setPlaceholderText("Enter time in hours")
+        manual_layout.addWidget(self.time_input)
         manual_layout.addWidget(QLabel("Length of your plant (cm):"))
         self.length_input = QLineEdit()
         self.length_input.setPlaceholderText("Enter plant length")
@@ -987,136 +1112,208 @@ class DataGraphPage(BasePage):
         add_btn = QPushButton("Add Data Point")
         add_btn.clicked.connect(self.add_data_point)
         manual_layout.addWidget(add_btn)
-        self.body.addLayout(manual_layout)
+        plant_layout.addLayout(manual_layout)
 
-        # Interval display
-        self.interval_label = QLabel("Last interval: N/A")
-        self.interval_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.body.addWidget(self.interval_label)
+        self.tabs.addTab(plant_tab, "Plant Growth")
 
-        # Run experiment button
-        run_btn = QPushButton("Load Experiment Data")
-        style_button(run_btn)
-        run_btn.clicked.connect(self.update_graph)
+        # Sensor Data Tab
+        sensor_tab = QWidget()
+        sensor_layout = QHBoxLayout(sensor_tab)
+        sensor_layout.setSpacing(20)
 
-        # Buttons layout (similar to other pages)
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(20)
-        apply_btn = QPushButton("Apply Settings")
-        apply_btn.clicked.connect(self.apply_settings)
-        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
+        # Left side: Sensor graph
+        graph_layout = QVBoxLayout()
+        self.sensor_graph = GraphCanvas(self)
+        graph_layout.addWidget(self.sensor_graph)
+
+        # Update sensor graph button
+        update_sensor_btn = QPushButton("Update Sensor Graph")
+        style_button(update_sensor_btn)
+        update_sensor_btn.clicked.connect(self.update_sensor_graph)
+        graph_layout.addWidget(update_sensor_btn)
+
+        sensor_layout.addLayout(graph_layout, 3)  # Stretch factor 3 for graph
+
+        # Right side: Sensor tracking info
+        sensor_info_group = QGroupBox("Tracked Sensors")
+        sensor_info_group.setStyleSheet("font-size: 16px; font-weight: bold;")
+        sensor_info_layout = QVBoxLayout()
+        sensor_info_layout.setSpacing(10)
+        sensor_info_layout.setContentsMargins(15, 15, 15, 15)
+
+        # Sensor indicators
+        self.sensor_indicators = []
+        sensor_names = [
+            ("Temperature", "°C"),
+            ("Humidity", "%"),
+            ("USC", "cm"),
+            ("VOC", "ppm")
+        ]
+
+        for name, unit in sensor_names:
+            indicator_layout = QHBoxLayout()
+            indicator_layout.setSpacing(10)
+            status_label = QLabel("●")
+            status_label.setStyleSheet("color: green; font-size: 16px; font-weight: bold;")
+            name_label = QLabel(f"{name} ({unit})")
+            name_label.setStyleSheet("font-size: 14px;")
+            indicator_layout.addWidget(status_label)
+            indicator_layout.addWidget(name_label)
+            indicator_layout.addStretch()
+            sensor_info_layout.addLayout(indicator_layout)
+            self.sensor_indicators.append((status_label, name_label))
+
+        sensor_info_layout.addStretch()
+        sensor_info_group.setLayout(sensor_info_layout)
+        sensor_layout.addWidget(sensor_info_group, 1)  # Stretch factor 1 for info panel
+
+        self.tabs.addTab(sensor_tab, "Sensor Data")
+
+        # Bottom layout with back button
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
         back_btn = QPushButton("Back to Main")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
+        bottom_layout.addWidget(back_btn)
+        bottom_layout.addStretch()
+        self.body.addLayout(bottom_layout)
 
-        btn_layout.addWidget(apply_btn)
-        btn_layout.addWidget(back_btn)
+        # Initialize experiments
+        self.load_experiments()
 
-        # Add widgets to layout
-        self.body.addWidget(self.graph)
-        self.body.addWidget(run_btn)
-        self.body.addLayout(btn_layout)
+    def load_experiments(self):
+        self.experiment_combo.clear()
+        # Scan for experiment CSV files
+        experiment_files = []
+        for file in os.listdir('.'):
+            if file.startswith('experiment_data_') and file.endswith('.csv') and file != 'experiment_data_manual.csv':
+                experiment_files.append(file)
+        experiment_files.sort()
+        for file in experiment_files:
+            # Extract name from filename
+            name = file.replace('experiment_data_', '').replace('.csv', '').replace('_', ' ')
+            self.experiment_combo.addItem(name, file)
+        if self.experiment_combo.count() == 0:
+            self.experiment_combo.addItem("No experiments", "")
 
-        # Initialize manual data storage
-        import time
-        self.start_time = time.time()
-        self.times = []
-        self.lengths = []
-        self.csv_filename = "experiment_data_manual.csv"
+    def create_new_experiment(self):
+        name, ok = QInputDialog.getText(self, "New Experiment", "Enter experiment name:")
+        if ok and name.strip():
+            sanitized_name = name.strip().replace(' ', '_').replace('/', '_').replace('\\', '_')
+            filename = f"experiment_data_{sanitized_name}.csv"
+            if not os.path.exists(filename):
+                with open(filename, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Time (hours)", "Plant Length (cm)"])
+                self.load_experiments()
+                # Select the new experiment
+                for i in range(self.experiment_combo.count()):
+                    if self.experiment_combo.itemData(i) == filename:
+                        self.experiment_combo.setCurrentIndex(i)
+                        break
+            else:
+                # Show message that name exists
+                pass  # Could add QMessageBox
 
-        # Create CSV header if not exists
-        try:
-            with open(self.csv_filename, "r") as f:
-                pass
-        except FileNotFoundError:
-            with open(self.csv_filename, "w", newline="") as f:
-                import csv
-                writer = csv.writer(f)
-                writer.writerow(["Time (minutes)", "Plant Length (cm)"])
-
-    def update_graph(self):
-        # Read experiment data from CSV files
+    def update_plant_graph(self):
+        # Read experiment data from all CSV files
         experiment_data = []
+        colors = ['b-', 'r-', 'c-', 'm-', 'y-', 'k-']
+        markers = ['o', 's', '^', 'v', 'D', 'p']
 
-        # Try to read experiment_data_Graph_#1.csv
-        try:
-            with open("experiment_data_Graph_#1.csv", "r") as f:
-                reader = csv.reader(f)
-                next(reader)  # Skip header
-                data1 = [(float(row[0]), float(row[1])) for row in reader]
-                experiment_data.append(("Experiment 1", data1, 'b-', 'o'))
-        except FileNotFoundError:
-            print("experiment_data_Graph_#1.csv not found")
-        except Exception as e:
-            print(f"Error reading experiment_data_Graph_#1.csv: {e}")
-
-        # Try to read experiment_data_Graph_#2.csv
-        try:
-            with open("experiment_data_Graph_#2.csv", "r") as f:
-                reader = csv.reader(f)
-                next(reader)  # Skip header
-                data2 = [(float(row[0]), float(row[1])) for row in reader]
-                experiment_data.append(("Experiment 2", data2, 'r-', 's'))
-        except FileNotFoundError:
-            print("experiment_data_Graph_#2.csv not found")
-        except Exception as e:
-            print(f"Error reading experiment_data_Graph_#2.csv: {e}")
+        for i, file in enumerate(os.listdir('.')):
+            if file.startswith('experiment_data_') and file.endswith('.csv') and file != 'experiment_data_manual.csv':
+                try:
+                    with open(file, "r") as f:
+                        reader = csv.reader(f)
+                        next(reader)  # Skip header
+                        data = [(float(row[0]), float(row[1])) for row in reader if row]
+                        if data:
+                            name = file.replace('experiment_data_', '').replace('.csv', '').replace('_', ' ')
+                            color = colors[i % len(colors)]
+                            marker = markers[i % len(markers)]
+                            experiment_data.append((name, data, color, marker))
+                except Exception as e:
+                    print(f"Error reading {file}: {e}")
 
         # Plot the data
-        self.graph.ax.clear()
+        self.plant_graph.ax.clear()
 
         has_data = False
-        if experiment_data:
-            for name, data, color, marker in experiment_data:
-                if data:
-                    times, lengths = zip(*data)
-                    self.graph.ax.plot(times, lengths, color, linewidth=2, markersize=6, marker=marker, label=name)
-                    has_data = True
-
-        # Plot manual data
-        if self.lengths:
-            self.graph.ax.plot(self.times, self.lengths, 'g-', linewidth=2, markersize=6, marker='^', label="Manual Data")
-            has_data = True
+        for name, data, color, marker in experiment_data:
+            if data:
+                times, lengths = zip(*data)
+                self.plant_graph.ax.plot(times, lengths, color, linewidth=2, markersize=6, marker=marker, label=name)
+                has_data = True
 
         if has_data:
-            self.graph.ax.set_title("NanoLab Plant Growth Experiments", fontsize=16, fontweight='bold')
-            self.graph.ax.set_xlabel("Time (minutes)", fontsize=14)
-            self.graph.ax.set_ylabel("Plant Length (cm)", fontsize=14)
-            self.graph.ax.grid(True, alpha=0.3)
-            self.graph.ax.legend()
+            self.plant_graph.ax.set_title("NanoLab Plant Growth Experiments", fontsize=16, fontweight='bold')
+            self.plant_graph.ax.set_xlabel("Time Since Start of Experiment (hours)", fontsize=14)
+            self.plant_graph.ax.set_ylabel("Plant Length (cm)", fontsize=14)
+            self.plant_graph.ax.grid(True, alpha=0.3)
+            self.plant_graph.ax.legend()
         else:
             # Fallback if no data found
-            self.graph.ax.text(0.5, 0.5, "No experiment data found.\nPlease ensure CSV files are in the current directory.",
-                              horizontalalignment='center', verticalalignment='center', transform=self.graph.ax.transAxes)
+            self.plant_graph.ax.text(0.5, 0.5, "No experiment data found.\nCreate a new experiment and add data points.",
+                              horizontalalignment='center', verticalalignment='center', transform=self.plant_graph.ax.transAxes)
 
-        self.graph.draw()   # refresh canvas
+        self.plant_graph.draw()   # refresh canvas
+
+    def update_sensor_graph(self):
+        # For now, generate sample temperature data over time
+        times = np.linspace(0, 24, 100)  # 24 hours
+        temperatures = 20 + 5 * np.sin(2 * np.pi * times / 24) + np.random.normal(0, 1, 100)  # Sample temp variation
+
+        self.sensor_graph.ax.clear()
+        self.sensor_graph.ax.plot(times, temperatures, 'r-', linewidth=2, label="Temperature")
+        self.sensor_graph.ax.set_title("Sensor Data: Temperature Over Time", fontsize=16, fontweight='bold')
+        self.sensor_graph.ax.set_xlabel("Time Since Start of Experiment (hours)", fontsize=14)
+        self.sensor_graph.ax.set_ylabel("Temperature (°C)", fontsize=14)
+        self.sensor_graph.ax.grid(True, alpha=0.3)
+        self.sensor_graph.ax.legend()
+        self.sensor_graph.draw()
 
     def add_data_point(self):
+        if self.experiment_combo.currentData() == "":
+            return  # No valid experiment selected
+
         try:
+            time_val = float(self.time_input.text())
             length = float(self.length_input.text())
-            if length < 0:
+            if length < 0 or time_val < 0:
                 return
         except ValueError:
             return
 
-        import time
-        elapsed_minutes = round((time.time() - self.start_time) / 60, 2)
-        self.times.append(elapsed_minutes)
-        self.lengths.append(length)
-
-        with open(self.csv_filename, "a", newline="") as f:
+        filename = self.experiment_combo.currentData()
+        with open(filename, "a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([elapsed_minutes, length])
+            writer.writerow([time_val, length])
 
-        # Update interval display
-        if len(self.times) > 1:
-            last_interval = self.times[-1] - self.times[-2]
-            self.interval_label.setText(f"Last interval: {last_interval:.2f} minutes")
-        else:
-            self.interval_label.setText("Last interval: N/A (first point)")
-
+        self.time_input.clear()
         self.length_input.clear()
-        self.update_graph()
+        self.update_plant_graph()
+
+    def reset_graph(self):
+        # Clear all experiment data files
+        for file in os.listdir('.'):
+            if file.startswith('experiment_data_') and file.endswith('.csv'):
+                try:
+                    os.remove(file)
+                    print(f"Deleted experiment data file: {file}")
+                except Exception as e:
+                    print(f"Error deleting {file}: {e}")
+
+        # Reload experiments to update the combo box
+        self.load_experiments()
+
+        # Clear the graph
+        self.plant_graph.ax.clear()
+        self.plant_graph.ax.text(0.5, 0.5, "Graph reset.\nAll experiment data cleared.\nYou can now start a new experiment.",
+                          horizontalalignment='center', verticalalignment='center', transform=self.plant_graph.ax.transAxes)
+        self.plant_graph.draw()
+        print("Graph reset")
 
     def apply_settings(self):
         # Save manual data settings or confirm
@@ -1176,6 +1373,11 @@ class MainWindow(QMainWindow):
         self.sensor_duration = 300
         self.sensor_interval = 60
 
+        self.usc_status = True
+        self.usc_threshold = 10
+        self.voc_status = True
+        self.voc_threshold = 5
+
         self.stack = QStackedWidget()
         self.stack.addWidget(MainPage(self.switch_page))
         self.stack.addWidget(WaterPumpPage(self.switch_page))
@@ -1215,7 +1417,11 @@ class MainWindow(QMainWindow):
 
         self.update_navigation_buttons()
 
-        self.setCentralWidget(self.stack)
+        # Wrap the stacked widget in a scroll area for scrolling capability
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidget(self.stack)
+        self.scroll_area.setWidgetResizable(True)
+        self.setCentralWidget(self.scroll_area)
 
         # Global stylesheet
         self.setStyleSheet(f"""
@@ -1287,6 +1493,12 @@ class MainWindow(QMainWindow):
     def update_navigation_buttons(self):
         self.back_btn.setEnabled(self.current_history_index > 0)
         self.forward_btn.setEnabled(self.current_history_index < len(self.page_history) - 1)
+
+    def wheelEvent(self, event):
+        self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().value() - event.angleDelta().y()
+        )
+        event.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
