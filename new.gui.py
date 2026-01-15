@@ -3,6 +3,8 @@ import random
 import csv
 import os
 import numpy as np
+import serial
+import serial.tools.list_ports
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
@@ -48,7 +50,7 @@ class BasePage(QWidget):
         title_label = QLabel(title)
         title_label.setObjectName("titleLabel")  # for styling
         title_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        # no inline styles, handled by stylesheet
+        # no inline styles, handled by global stylesheet
         layout.addWidget(title_label)
 
         self.body = QVBoxLayout()
@@ -56,6 +58,15 @@ class BasePage(QWidget):
         self.body.setSpacing(20)
         layout.addLayout(self.body)
         layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+
+    def get_main_window(self):
+        # Navigate up to MainWindow by traversing parents until finding one with units_system
+        current = self
+        while current:
+            if hasattr(current, 'units_system'):
+                return current
+            current = current.parent()
+        return None
 
 
 class MainPage(BasePage):
@@ -103,6 +114,21 @@ class MainPage(BasePage):
         settings_layout = QVBoxLayout()
         settings_layout.setSpacing(20)
         settings_layout.setContentsMargins(20, 25, 20, 25)
+
+        # Units system toggle
+        units_layout = QHBoxLayout()
+        units_layout.setSpacing(15)
+        units_label = QLabel("Units:")
+        units_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self.units_combo = QComboBox()
+        self.units_combo.addItems(["Metric", "Imperial"])
+        self.units_combo.setCurrentText("Metric")
+        self.units_combo.setMinimumHeight(40)
+        self.units_combo.currentTextChanged.connect(self.change_units)
+        units_layout.addWidget(units_label)
+        units_layout.addWidget(self.units_combo)
+        units_layout.addStretch()
+        settings_layout.addLayout(units_layout)
 
         # Connection method dropdown
         connection_layout = QHBoxLayout()
@@ -176,6 +202,16 @@ class MainPage(BasePage):
 
         self.body.addLayout(bottom_layout)
 
+    def change_units(self, text):
+        main_window = self.get_main_window()
+        main_window.units_system = "metric" if text == "Metric" else "imperial"
+        print(f"Units changed to {main_window.units_system}")
+        # Update all pages that display units
+        if hasattr(main_window.water_page, 'update_units'):
+            main_window.water_page.update_units()
+        if hasattr(main_window.sensor_page, 'update_units'):
+            main_window.sensor_page.update_units()
+
 class WaterPumpPage(BasePage):
     def __init__(self, switch):
         super().__init__("Water Pump Settings")
@@ -213,17 +249,20 @@ class WaterPumpPage(BasePage):
         # Flow rate spinbox
         flow_layout = QHBoxLayout()
         flow_layout.setSpacing(15)
-        flow_label = QLabel("Flow Rate (L/min):")
-        flow_label.setStyleSheet("font-size: 14px;")
+        self.flow_label = QLabel("Flow Rate (L/min):")
+        self.flow_label.setStyleSheet("font-size: 14px;")
         self.flow_spinbox = QSpinBox()
         self.flow_spinbox.setMinimum(0)
         self.flow_spinbox.setMaximum(20)
         self.flow_spinbox.setValue(10)
-        flow_layout.addWidget(flow_label)
+        flow_layout.addWidget(self.flow_label)
         flow_layout.addWidget(self.flow_spinbox)
         flow_layout.addStretch()
 
         self.body.addLayout(flow_layout)
+
+        # Update units
+        self.update_units()
 
         # Duration settings
         duration_layout = QHBoxLayout()
@@ -268,6 +307,14 @@ class WaterPumpPage(BasePage):
         btn_layout.addWidget(apply_btn)
         btn_layout.addWidget(back_btn)
         self.body.addLayout(btn_layout)
+
+    def update_units(self):
+        main_window = self.get_main_window()
+        if main_window is not None:
+            if main_window.units_system == "metric":
+                self.flow_label.setText("Flow Rate (L/min):")
+            else:
+                self.flow_label.setText("Flow Rate (GPM):")
 
     def apply_water_pump(self):
         main_window = self.parent().parent()
@@ -399,7 +446,55 @@ class LEDSettingsPage(BasePage):
         main_window.led_color = self.hex_input.text()
         main_window.led_duration = self.duration_spinbox.value()
         main_window.led_interval = self.run_interval_spinbox.value()
+
+        # Send to ESP32 if USB connection selected
+        if main_window.connection_combo.currentText() == "USB Port":
+            self.send_led_to_esp32(main_window)
+
         print("LED settings applied")
+
+    def send_led_to_esp32(self, main_window):
+        # Find ESP32 port
+        port = self.find_esp32_port()
+        if port:
+            try:
+                # Parse color
+                color = QColor(main_window.led_color)
+                r = color.red()
+                g = color.green()
+                b = color.blue()
+
+                # Open serial
+                ser = serial.Serial(port, 115200, timeout=1)
+
+                # Send command
+                status = 1 if main_window.led_status else 0
+                brightness = main_window.led_brightness
+                command = f"LED:{status},{brightness},{r},{g},{b}\n"
+                ser.write(command.encode())
+
+                # Close serial
+                ser.close()
+                print("LED command sent to ESP32")
+            except Exception as e:
+                print(f"Error sending to ESP32: {e}")
+        else:
+            print("ESP32 not found on USB ports")
+
+    def find_esp32_port(self):
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            if 'USB' in port.device or 'ACM' in port.device:
+                try:
+                    ser = serial.Serial(port.device, 115200, timeout=1)
+                    ser.write(b'PING\n')
+                    response = ser.readline().decode().strip()
+                    ser.close()
+                    if response == 'PONG':
+                        return port.device
+                except:
+                    pass
+        return None
 
 class FanSettingsPage(BasePage):
     def __init__(self, switch):
@@ -623,13 +718,13 @@ class SensorPage(BasePage):
         # Temperature threshold
         temp_layout = QHBoxLayout()
         temp_layout.setSpacing(15)
-        temp_label = QLabel("Temperature Threshold (°C):")
-        temp_label.setStyleSheet("font-size: 14px;")
+        self.temp_label = QLabel("Temperature Threshold (°C):")
+        self.temp_label.setStyleSheet("font-size: 14px;")
         self.temp_spinbox = QSpinBox()
         self.temp_spinbox.setMinimum(0)
         self.temp_spinbox.setMaximum(50)
         self.temp_spinbox.setValue(25)
-        temp_layout.addWidget(temp_label)
+        temp_layout.addWidget(self.temp_label)
         temp_layout.addWidget(self.temp_spinbox)
         temp_layout.addStretch()
 
@@ -666,13 +761,13 @@ class SensorPage(BasePage):
         # USC threshold
         usc_layout = QHBoxLayout()
         usc_layout.setSpacing(15)
-        usc_label = QLabel("USC Threshold (cm):")
-        usc_label.setStyleSheet("font-size: 14px;")
+        self.usc_label = QLabel("USC Threshold (cm):")
+        self.usc_label.setStyleSheet("font-size: 14px;")
         self.usc_spinbox = QSpinBox()
         self.usc_spinbox.setMinimum(0)
         self.usc_spinbox.setMaximum(100)
         self.usc_spinbox.setValue(10)
-        usc_layout.addWidget(usc_label)
+        usc_layout.addWidget(self.usc_label)
         usc_layout.addWidget(self.usc_spinbox)
         usc_layout.addStretch()
 
@@ -749,6 +844,19 @@ class SensorPage(BasePage):
         btn_layout.addWidget(apply_btn)
         btn_layout.addWidget(back_btn)
         self.body.addLayout(btn_layout)
+
+        # Update units
+        self.update_units()
+
+    def update_units(self):
+        main_window = self.get_main_window()
+        if main_window is not None:
+            if main_window.units_system == "metric":
+                self.temp_label.setText("Temperature Threshold (°C):")
+                self.usc_label.setText("USC Threshold (cm):")
+            else:
+                self.temp_label.setText("Temperature Threshold (°F):")
+                self.usc_label.setText("USC Threshold (inches):")
 
     def apply_sensor(self):
         main_window = self.parent().parent()
@@ -1342,6 +1450,9 @@ class MainWindow(QMainWindow):
         self.page_history = []
         self.current_history_index = -1
 
+        # Unit system
+        self.units_system = "metric"  # "metric" or "imperial"
+
         # Settings storage
         self.water_pump_status = True
         self.water_pump_speed = 50
@@ -1379,15 +1490,24 @@ class MainWindow(QMainWindow):
         self.voc_threshold = 5
 
         self.stack = QStackedWidget()
-        self.stack.addWidget(MainPage(self.switch_page))
-        self.stack.addWidget(WaterPumpPage(self.switch_page))
-        self.stack.addWidget(LEDSettingsPage(self.switch_page))
-        self.stack.addWidget(FanSettingsPage(self.switch_page))
-        self.stack.addWidget(CameraPage(self.switch_page))
-        self.stack.addWidget(SensorPage(self.switch_page))
-        self.stack.addWidget(DataGraphPage(self.switch_page))
-        self.stack.addWidget(SchedulePage(self.switch_page))
-        self.stack.addWidget(SettingsOverviewPage(self.switch_page, self))
+        self.main_page = MainPage(self.switch_page)
+        self.stack.addWidget(self.main_page)
+        self.water_page = WaterPumpPage(self.switch_page)
+        self.stack.addWidget(self.water_page)
+        self.led_page = LEDSettingsPage(self.switch_page)
+        self.stack.addWidget(self.led_page)
+        self.fan_page = FanSettingsPage(self.switch_page)
+        self.stack.addWidget(self.fan_page)
+        self.camera_page = CameraPage(self.switch_page)
+        self.stack.addWidget(self.camera_page)
+        self.sensor_page = SensorPage(self.switch_page)
+        self.stack.addWidget(self.sensor_page)
+        self.graph_page = DataGraphPage(self.switch_page)
+        self.stack.addWidget(self.graph_page)
+        self.schedule_page = SchedulePage(self.switch_page)
+        self.stack.addWidget(self.schedule_page)
+        self.overview_page = SettingsOverviewPage(self.switch_page, self)
+        self.stack.addWidget(self.overview_page)
 
         # Navigation bar
         nav_toolbar = self.addToolBar("Navigation")
@@ -1504,4 +1624,5 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    sys.exit(app.exec())
     sys.exit(app.exec())
