@@ -317,12 +317,15 @@ class WaterPumpPage(BasePage):
                 self.flow_label.setText("Flow Rate (GPM):")
 
     def apply_water_pump(self):
-        main_window = self.parent().parent()
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
         main_window.water_pump_status = self.pump_toggle.isChecked()
         main_window.water_pump_speed = self.speed_slider.value()
         main_window.water_pump_flow = self.flow_spinbox.value()
         main_window.water_pump_duration = self.duration_spinbox.value()
         main_window.water_pump_interval = self.run_interval_spinbox.value()
+        main_window.overview_page.update_labels()
         print("Water pump settings applied")
 
 class LEDSettingsPage(BasePage):
@@ -376,18 +379,18 @@ class LEDSettingsPage(BasePage):
 
         self.body.addLayout(color_layout)
 
-        # HEX input
-        hex_layout = QHBoxLayout()
-        hex_layout.setSpacing(15)
-        hex_label = QLabel("HEX Color:")
-        hex_label.setStyleSheet("font-size: 14px;")
-        self.hex_input = QLineEdit("#ffffff")
-        self.hex_input.setMaxLength(7)
-        hex_layout.addWidget(hex_label)
-        hex_layout.addWidget(self.hex_input)
-        hex_layout.addStretch()
+        # RGB input
+        rgb_layout = QHBoxLayout()
+        rgb_layout.setSpacing(15)
+        rgb_label = QLabel("RGB Color:")
+        rgb_label.setStyleSheet("font-size: 14px;")
+        self.rgb_input = QLineEdit("255, 255, 255")
+        self.rgb_input.setMaxLength(11)
+        rgb_layout.addWidget(rgb_label)
+        rgb_layout.addWidget(self.rgb_input)
+        rgb_layout.addStretch()
 
-        self.body.addLayout(hex_layout)
+        self.body.addLayout(rgb_layout)
 
         # Duration settings
         duration_layout = QHBoxLayout()
@@ -437,15 +440,36 @@ class LEDSettingsPage(BasePage):
         color = QColorDialog.getColor()
         if color.isValid():
             self.color_display.setStyleSheet(f"background-color: {color.name()}; border: 2px solid black;")
-            self.hex_input.setText(color.name().upper())
+            self.rgb_input.setText(f"{color.red()}, {color.green()}, {color.blue()}")
+
+    @staticmethod
+    def normalize_led_color(color_value):
+        if isinstance(color_value, tuple) and len(color_value) == 3:
+            return color_value
+        if isinstance(color_value, str):
+            parts = [p.strip() for p in color_value.split(",") if p.strip()]
+            if len(parts) == 3:
+                try:
+                    values = [max(0, min(255, int(p))) for p in parts]
+                    return values[0], values[1], values[2]
+                except ValueError:
+                    pass
+        color = QColor(color_value)
+        if not color.isValid():
+            color = QColor("#ffffff")
+        return color.red(), color.green(), color.blue()
 
     def apply_led(self):
-        main_window = self.parent().parent()
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
         main_window.led_status = self.led_toggle.isChecked()
         main_window.led_brightness = self.brightness_slider.value()
-        main_window.led_color = self.hex_input.text()
+        main_window.led_color = self.normalize_led_color(self.rgb_input.text())
         main_window.led_duration = self.duration_spinbox.value()
         main_window.led_interval = self.run_interval_spinbox.value()
+
+        main_window.overview_page.update_labels()
 
         # Send to ESP32 if USB connection selected
         if main_window.connection_combo.currentText() == "USB Port":
@@ -459,10 +483,7 @@ class LEDSettingsPage(BasePage):
         if port:
             try:
                 # Parse color
-                color = QColor(main_window.led_color)
-                r = color.red()
-                g = color.green()
-                b = color.blue()
+                r, g, b = self.normalize_led_color(main_window.led_color)
 
                 # Open serial
                 ser = serial.Serial(port, 115200, timeout=1)
@@ -575,11 +596,14 @@ class FanSettingsPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def apply_fan(self):
-        main_window = self.parent().parent()
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
         main_window.fan_status = self.fan_toggle.isChecked()
         main_window.fan_intensity = self.intensity_slider.value()
         main_window.fan_duration = self.duration_spinbox.value()
         main_window.fan_interval = self.run_interval_spinbox.value()
+        main_window.overview_page.update_labels()
         print("Fan settings applied")
 
 class CameraPage(BasePage):
@@ -675,12 +699,15 @@ class CameraPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def apply_camera(self):
-        main_window = self.parent().parent()
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
         main_window.camera_status = self.camera_toggle.isChecked()
         main_window.camera_resolution = self.resolution_combo.currentText()
         main_window.camera_exposure = self.exposure_slider.value()
         main_window.camera_duration = self.duration_spinbox.value()
         main_window.camera_interval = self.run_interval_spinbox.value()
+        main_window.overview_page.update_labels()
         print("Camera settings applied")
 
 class SensorPage(BasePage):
@@ -859,7 +886,9 @@ class SensorPage(BasePage):
                 self.usc_label.setText("USC Threshold (inches):")
 
     def apply_sensor(self):
-        main_window = self.parent().parent()
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
         main_window.sensor_status = self.sensor_toggle.isChecked()
         main_window.sensor_reading_interval = self.interval_spinbox.value()
         main_window.sensor_temp_threshold = self.temp_spinbox.value()
@@ -870,6 +899,7 @@ class SensorPage(BasePage):
         main_window.voc_threshold = self.voc_spinbox.value()
         main_window.sensor_duration = self.duration_spinbox.value()
         main_window.sensor_interval = self.run_interval_spinbox.value()
+        main_window.overview_page.update_labels()
         print("Sensor settings applied")
 
 class SettingsOverviewPage(BasePage):
@@ -1123,7 +1153,8 @@ class SettingsOverviewPage(BasePage):
         # Update LED labels
         self.led_labels[0].setText(f"Status: {'On' if self.main_window.led_status else 'Off'}")
         self.led_labels[1].setText(f"Brightness: {self.main_window.led_brightness}%")
-        self.led_labels[2].setText(f"Color: {self.main_window.led_color.upper()}")
+        r, g, b = LEDSettingsPage.normalize_led_color(self.main_window.led_color)
+        self.led_labels[2].setText(f"Color: RGB({r}, {g}, {b})")
         self.led_labels[3].setText(f"Duration: {self.main_window.led_duration} seconds")
         self.led_labels[4].setText(f"Interval: {self.main_window.led_interval} minutes")
 
@@ -1462,7 +1493,7 @@ class MainWindow(QMainWindow):
 
         self.led_status = True
         self.led_brightness = 70
-        self.led_color = "#ffffff"
+        self.led_color = (255, 255, 255)
         self.led_duration = 300
         self.led_interval = 60
 
@@ -1578,18 +1609,24 @@ class MainWindow(QMainWindow):
                 self.current_history_index += 1
             self.stack.setCurrentIndex(index)
             self.update_navigation_buttons()
+        if page_name == "overview":
+            self.overview_page.update_labels()
 
     def go_back(self):
         if self.current_history_index > 0:
             self.current_history_index -= 1
             self.stack.setCurrentIndex(self.page_history[self.current_history_index])
             self.update_navigation_buttons()
+            if self.stack.currentWidget() == self.overview_page:
+                self.overview_page.update_labels()
 
     def go_forward(self):
         if self.current_history_index < len(self.page_history) - 1:
             self.current_history_index += 1
             self.stack.setCurrentIndex(self.page_history[self.current_history_index])
             self.update_navigation_buttons()
+            if self.stack.currentWidget() == self.overview_page:
+                self.overview_page.update_labels()
 
     def save_changes(self):
         current_index = self.stack.currentIndex()
@@ -1609,6 +1646,7 @@ class MainWindow(QMainWindow):
             current_widget.apply_settings()
         else:
             print("No apply method for current page")
+        self.overview_page.update_labels()
 
     def update_navigation_buttons(self):
         self.back_btn.setEnabled(self.current_history_index > 0)
