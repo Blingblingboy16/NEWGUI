@@ -5,6 +5,7 @@ import os
 import numpy as np
 import serial
 import serial.tools.list_ports
+import time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
@@ -193,7 +194,7 @@ class MainPage(BasePage):
 
         # Send to NanoLab button
         send_btn = QPushButton("Send to NanoLab")
-        send_btn.clicked.connect(lambda: switch("send"))  # Placeholder - you might want to implement this
+        send_btn.clicked.connect(self.send_to_nanolab)
         send_btn.setStyleSheet("font-size: 16px; color: black; background-color: white; border: 1px solid #a8d5a2; border-radius: 4px; padding: 8px; min-height: 40px;")
         bottom_layout.addWidget(send_btn)
 
@@ -211,6 +212,127 @@ class MainPage(BasePage):
             main_window.water_page.update_units()
         if hasattr(main_window.sensor_page, 'update_units'):
             main_window.sensor_page.update_units()
+
+    def send_to_nanolab(self):
+        """Send all saved settings to the Arduino via serial communication"""
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
+
+        # Only send if USB connection is selected
+        if self.connection_combo.currentText() != "USB Port":
+            print("Cannot send to NanoLab: USB connection not selected")
+            return
+
+        # Find Arduino port
+        port = self.find_arduino_port()
+        if not port:
+            print("Arduino not found on USB ports")
+            return
+
+        try:
+            # Open serial connection
+            ser = serial.Serial(port, 9600, timeout=1)
+            time.sleep(2)  # Allow Arduino to reset
+
+            # Send LED settings
+            self.send_led_settings(ser, main_window)
+
+            # Send water pump settings
+            self.send_water_pump_settings(ser, main_window)
+
+            # Send fan settings
+            self.send_fan_settings(ser, main_window)
+
+            # Send sensor settings
+            self.send_sensor_settings(ser, main_window)
+
+            # Close serial connection
+            ser.close()
+            print("All settings sent to NanoLab successfully")
+
+        except Exception as e:
+            print(f"Error sending settings to Arduino: {e}")
+
+    def find_arduino_port(self):
+        """Find the Arduino port by looking for common patterns"""
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            if 'ACM' in port.device or 'USB' in port.device:
+                try:
+                    # Try to open the port briefly to test if it's the Arduino
+                    ser = serial.Serial(port.device, 9600, timeout=1)
+                    ser.close()
+                    return port.device
+                except:
+                    pass
+        return None
+
+    def send_led_settings(self, ser, main_window):
+        """Send LED settings to Arduino using original command format"""
+        if not main_window.led_status:
+            # Turn off LEDs
+            command = "OFF\n"
+            ser.write(command.encode())
+            print(f"Sent to Arduino: {command.strip()}")
+            return
+
+        # Parse color
+        r, g, b = LEDSettingsPage.normalize_led_color(main_window.led_color)
+        
+        # Send color command (brightness, duration, interval are not supported by current Arduino firmware)
+        command = f"COLOR,{r},{g},{b}\n"
+        ser.write(command.encode())
+        print(f"Sent to Arduino: {command.strip()}")
+
+    def send_water_pump_settings(self, ser, main_window):
+        """Send water pump settings to Arduino"""
+        status = "ON" if main_window.water_pump_status else "OFF"
+        speed = main_window.water_pump_speed
+        flow = main_window.water_pump_flow
+        duration = main_window.water_pump_duration
+        interval = main_window.water_pump_interval
+        
+        command = f"PUMP,{status},{speed},{flow},{duration},{interval}\n"
+        ser.write(command.encode())
+        print(f"Sent to Arduino: {command.strip()}")
+
+    def send_fan_settings(self, ser, main_window):
+        """Send fan settings to Arduino"""
+        status = "ON" if main_window.fan_status else "OFF"
+        intensity = main_window.fan_intensity
+        duration = main_window.fan_duration
+        interval = main_window.fan_interval
+        
+        command = f"FAN,{status},{intensity},{duration},{interval}\n"
+        ser.write(command.encode())
+        print(f"Sent to Arduino: {command.strip()}")
+
+    def send_sensor_settings(self, ser, main_window):
+        """Send sensor settings to Arduino"""
+        status = "ON" if main_window.sensor_status else "OFF"
+        reading_interval = main_window.sensor_reading_interval
+        temp_threshold = main_window.sensor_temp_threshold
+        humidity_threshold = main_window.sensor_humidity_threshold
+        usc_status = "ON" if main_window.usc_status else "OFF"
+        usc_threshold = main_window.usc_threshold
+        voc_status = "ON" if main_window.voc_status else "OFF"
+        voc_threshold = main_window.voc_threshold
+        duration = main_window.sensor_duration
+        interval = main_window.sensor_interval
+        
+        command = f"SENSOR,{status},{reading_interval},{temp_threshold},{humidity_threshold},{usc_status},{usc_threshold},{voc_status},{voc_threshold},{duration},{interval}\n"
+        ser.write(command.encode())
+        print(f"Sent to Arduino: {command.strip()}")
+
+    def get_main_window(self):
+        # Navigate up to MainWindow by traversing parents until finding one with units_system
+        current = self
+        while current:
+            if hasattr(current, 'units_system'):
+                return current
+            current = current.parent()
+        return None
 
 class WaterPumpPage(BasePage):
     def __init__(self, switch):
@@ -467,7 +589,7 @@ class LEDSettingsPage(BasePage):
         main_window.led_brightness = self.brightness_slider.value()
         main_window.led_color = self.normalize_led_color(self.rgb_input.text())
         main_window.led_duration = self.duration_spinbox.value()
-        main_window.led_interval = self.run_interval_spinbox.value()
+        main_window.led_interval = self.run
 
         main_window.overview_page.update_labels()
 
