@@ -269,10 +269,10 @@ class MainPage(BasePage):
         return None
 
     def send_led_settings(self, ser, main_window):
-        """Send LED settings to Arduino using original command format"""
+        """Send LED settings to Arduino using proper command format"""
         if not main_window.led_status:
             # Turn off LEDs
-            command = "OFF\n"
+            command = "LED,OFF\n"
             ser.write(command.encode())
             print(f"Sent to Arduino: {command.strip()}")
             return
@@ -280,8 +280,13 @@ class MainPage(BasePage):
         # Parse color
         r, g, b = LEDSettingsPage.normalize_led_color(main_window.led_color)
         
-        # Send color command (brightness, duration, interval are not supported by current Arduino firmware)
-        command = f"COLOR,{r},{g},{b}\n"
+        # Use saved brightness, duration, and interval values
+        brightness = main_window.led_brightness
+        duration = main_window.led_duration  # in seconds
+        interval = main_window.led_interval  # in minutes
+        
+        # Send LED command in format: LED,ON,r,g,b,brightness,runSec,intervalMin
+        command = f"LED,ON,{r},{g},{b},{brightness},{duration},{interval}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
@@ -589,7 +594,7 @@ class LEDSettingsPage(BasePage):
         main_window.led_brightness = self.brightness_slider.value()
         main_window.led_color = self.normalize_led_color(self.rgb_input.text())
         main_window.led_duration = self.duration_spinbox.value()
-        main_window.led_interval = self.run
+        main_window.led_interval = self.run_interval_spinbox.value()
 
         main_window.overview_page.update_labels()
 
