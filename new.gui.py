@@ -9,9 +9,9 @@ import time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
-    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QInputDialog, QTabWidget
+    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QInputDialog, QTabWidget, QTimeEdit
 )
-from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtCore import Qt, QDate, QTime
 from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -74,47 +74,119 @@ class MainPage(BasePage):
     def __init__(self, switch):
         super().__init__("Auxora NanoLab Control")
 
-        # Main horizontal layout for two columns
-        main_layout = QHBoxLayout()
-        main_layout.setSpacing(40)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        # Main container layout
+        main_container = QVBoxLayout()
+        main_container.setSpacing(30)
+
+        # Status bar at the top
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(20)
+        
+        # Connection status indicator
+        self.connection_status = QLabel("●")
+        self.connection_status.setStyleSheet("font-size: 24px; color: #27ae60; font-weight: bold;")
+        status_layout.addWidget(self.connection_status)
+        
+        # Status text
+        status_text = QLabel("Connected to NanoLab")
+        status_text.setStyleSheet("font-size: 16px; font-weight: 600; color: #2f4f2d;")
+        status_layout.addWidget(status_text)
+        
+        # Last update
+        last_update = QLabel("Last update: Just now")
+        last_update.setStyleSheet("font-size: 14px; color: #666666;")
+        status_layout.addWidget(last_update)
+        status_layout.addStretch()
+        
+        # Connection dropdown
+        connection_layout = QHBoxLayout()
+        connection_layout.setSpacing(10)
+        connection_label = QLabel("Connection:")
+        connection_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self.connection_combo = QComboBox()
+        self.connection_combo.addItems(["USB Port", "Wireless"])
+        self.connection_combo.setMinimumHeight(36)
+        self.connection_combo.currentTextChanged.connect(self.update_connection_status)
+        connection_layout.addWidget(connection_label)
+        connection_layout.addWidget(self.connection_combo)
+        status_layout.addLayout(connection_layout)
+
+        main_container.addLayout(status_layout)
+
+        # Two-column layout for main content
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(30)
 
         # Left Column - Review Data Section
-        data_group = QGroupBox("Review NanoLab Data")
-        data_group.setStyleSheet("font-size: 18px; font-weight: bold;")
-        data_layout = QVBoxLayout()
+        data_widget = QWidget()
+        data_widget.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+                border: 1px solid #e0e0e0;
+                padding: 20px;
+            }
+        """)
+        data_layout = QVBoxLayout(data_widget)
         data_layout.setSpacing(20)
-        data_layout.setContentsMargins(20, 25, 20, 25)
 
-        # Placeholder for data content
-        data_placeholder = QLabel("Data visualization and results will be displayed here.\n\nCurrent status: Connected to NanoLab\nLast update: November 20, 2025 4:16 PM")
-        data_placeholder.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        data_placeholder.setStyleSheet("font-size: 14px; padding: 10px;")
-        data_layout.addWidget(data_placeholder)
+        # Data section header
+        data_header = QLabel("Review NanoLab Data")
+        data_header.setStyleSheet("font-size: 18px; font-weight: bold; color: #2f4f2d; margin-bottom: 10px;")
+        data_layout.addWidget(data_header)
+
+        # Data content
+        data_content = QLabel("Monitor your experiments and view collected data. Track plant growth, sensor readings, and system performance over time.")
+        data_content.setStyleSheet("font-size: 14px; color: #555555; line-height: 1.4;")
+        data_content.setWordWrap(True)
+        data_layout.addWidget(data_content)
 
         # Data action buttons
-        data_btn_layout = QVBoxLayout()
-        data_btn_layout.setSpacing(10)
+        data_btn_layout = QHBoxLayout()
+        data_btn_layout.setSpacing(15)
+        
         view_data_btn = QPushButton("View Experiment Graphing")
         view_data_btn.clicked.connect(lambda: switch("graph"))
-        export_data_btn = QPushButton("Export Data")
-        clear_data_btn = QPushButton("Clear Data")
-
-        for btn in (view_data_btn, export_data_btn, clear_data_btn):
-            style_button(btn)
-            data_btn_layout.addWidget(btn)
+        view_data_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e8f5e9;
+                color: #2f4f2d;
+                border: 2px solid #a8d5a2;
+                border-radius: 8px;
+                padding: 12px 20px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d4edda;
+                border-color: #86c291;
+            }
+        """)
+        data_btn_layout.addWidget(view_data_btn)
+        data_btn_layout.addStretch()
 
         data_layout.addLayout(data_btn_layout)
         data_layout.addStretch()
-        data_group.setLayout(data_layout)
-        main_layout.addWidget(data_group)
+
+        content_layout.addWidget(data_widget, 1)
 
         # Right Column - Adjust Settings Section
-        settings_group = QGroupBox("Adjust NanoLab Settings")
-        settings_group.setStyleSheet("font-size: 18px; font-weight: bold;")
-        settings_layout = QVBoxLayout()
+        settings_widget = QWidget()
+        settings_widget.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 12px;
+                border: 1px solid #e0e0e0;
+                padding: 20px;
+            }
+        """)
+        settings_layout = QVBoxLayout(settings_widget)
         settings_layout.setSpacing(20)
-        settings_layout.setContentsMargins(20, 25, 20, 25)
+
+        # Settings section header
+        settings_header = QLabel("Adjust NanoLab Settings")
+        settings_header.setStyleSheet("font-size: 18px; font-weight: bold; color: #2f4f2d; margin-bottom: 10px;")
+        settings_layout.addWidget(settings_header)
 
         # Units system toggle
         units_layout = QHBoxLayout()
@@ -131,22 +203,9 @@ class MainPage(BasePage):
         units_layout.addStretch()
         settings_layout.addLayout(units_layout)
 
-        # Connection method dropdown
-        connection_layout = QHBoxLayout()
-        connection_layout.setSpacing(15)
-        connection_label = QLabel("Connection:")
-        connection_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        self.connection_combo = QComboBox()
-        self.connection_combo.addItems(["USB Port", "Wireless"])
-        self.connection_combo.setMinimumHeight(40)
-        connection_layout.addWidget(connection_label)
-        connection_layout.addWidget(self.connection_combo)
-        connection_layout.addStretch()
-        settings_layout.addLayout(connection_layout)
-
         # Grid of setting buttons
         grid = QGridLayout()
-        grid.setSpacing(18)
+        grid.setSpacing(15)
 
         buttons = [
             ("Water Pump", "water"),
@@ -160,8 +219,27 @@ class MainPage(BasePage):
         row, col = 0, 0
         for text, target in buttons:
             btn = QPushButton(text)
-            style_button(btn)
-            btn.setMinimumHeight(48)
+            btn.setMinimumHeight(50)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #a8d5a2;
+                    color: black;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 12px;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+                QPushButton:hover {
+                    background-color: #2f4f2d;
+                    color: white;
+                }
+                QPushButton:pressed {
+                    background-color: #2f4f2d;
+                    color: white;
+                }
+            """)
             btn.clicked.connect(lambda _, t=target: switch(t))
             grid.addWidget(btn, row, col)
             col += 1
@@ -172,36 +250,68 @@ class MainPage(BasePage):
         settings_layout.addLayout(grid)
         settings_layout.addStretch()
 
-        settings_group.setLayout(settings_layout)
-        main_layout.addWidget(settings_group)
+        content_layout.addWidget(settings_widget, 1)
 
-        # Set stretch factors to make columns equal width
-        main_layout.setStretchFactor(data_group, 1)
-        main_layout.setStretchFactor(settings_group, 1)
-
-        self.body.addLayout(main_layout)
+        main_container.addLayout(content_layout)
 
         # Bottom section with Settings Overview and Send to NanoLab buttons
         bottom_layout = QHBoxLayout()
         bottom_layout.setSpacing(20)
-        bottom_layout.setContentsMargins(20, 20, 20, 20)
+        bottom_layout.setContentsMargins(0, 20, 0, 0)
 
         # Settings Overview button
         overview_btn = QPushButton("Settings Overview")
         overview_btn.clicked.connect(lambda: switch("overview"))
-        overview_btn.setStyleSheet("font-size: 16px; color: black; background-color: white; border: 1px solid #a8d5a2; border-radius: 4px; padding: 8px; min-height: 40px;")
-        bottom_layout.addWidget(overview_btn)
+        overview_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #fff3cd;
+                color: #856404;
+                border: 2px solid #ffeaa7;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #ffeaa7;
+                border-color: #f1c40f;
+            }
+        """)
 
         # Send to NanoLab button
         send_btn = QPushButton("Send to NanoLab")
         send_btn.clicked.connect(self.send_to_nanolab)
-        send_btn.setStyleSheet("font-size: 16px; color: black; background-color: white; border: 1px solid #a8d5a2; border-radius: 4px; padding: 8px; min-height: 40px;")
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d1ecf1;
+                color: #0c5460;
+                border: 2px solid #bee5eb;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #bee5eb;
+                border-color: #85c7cf;
+            }
+        """)
+
+        bottom_layout.addWidget(overview_btn)
         bottom_layout.addWidget(send_btn)
+        bottom_layout.addStretch()
 
-        # Center the buttons
-        bottom_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        main_container.addLayout(bottom_layout)
+        main_container.addStretch()
 
-        self.body.addLayout(bottom_layout)
+        self.body.addLayout(main_container)
+
+    def update_connection_status(self, text):
+        """Update the connection status indicator"""
+        if text == "USB Port":
+            self.connection_status.setStyleSheet("font-size: 24px; color: #27ae60; font-weight: bold;")
+        else:
+            self.connection_status.setStyleSheet("font-size: 24px; color: #f39c12; font-weight: bold;")
 
     def change_units(self, text):
         main_window = self.get_main_window()
@@ -246,6 +356,9 @@ class MainPage(BasePage):
 
             # Send sensor settings
             self.send_sensor_settings(ser, main_window)
+
+            # Send schedule settings
+            self.send_schedule_settings(ser, main_window)
 
             # Close serial connection
             ser.close()
@@ -327,6 +440,26 @@ class MainPage(BasePage):
         interval = main_window.sensor_interval
         
         command = f"SENSOR,{status},{reading_interval},{temp_threshold},{humidity_threshold},{usc_status},{usc_threshold},{voc_status},{voc_threshold},{duration},{interval}\n"
+        ser.write(command.encode())
+        print(f"Sent to Arduino: {command.strip()}")
+
+    def send_schedule_settings(self, ser, main_window):
+        """Send schedule settings to Arduino"""
+        if not hasattr(main_window, 'schedule_enabled') or not main_window.schedule_enabled:
+            # Send schedule disable command
+            command = "SCHEDULE,OFF\n"
+            ser.write(command.encode())
+            print(f"Sent to Arduino: {command.strip()}")
+            return
+
+        # Parse schedule settings
+        start_date = main_window.schedule_start_date.toString("yyyy-MM-dd")
+        end_date = main_window.schedule_end_date.toString("yyyy-MM-dd")
+        start_time = main_window.schedule_start_time.toString("HH:mm")
+        end_time = main_window.schedule_end_time.toString("HH:mm")
+        
+        # Send schedule command in format: SCHEDULE,ON,start_date,end_date,start_time,end_time
+        command = f"SCHEDULE,ON,{start_date},{end_date},{start_time},{end_time}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
@@ -489,35 +622,95 @@ class LEDSettingsPage(BasePage):
         brightness_layout.addWidget(self.brightness_slider)
         self.body.addLayout(brightness_layout)
 
-        # Color picker
-        color_layout = QHBoxLayout()
-        color_layout.setSpacing(15)
-        color_label = QLabel("Select Color:")
-        color_label.setStyleSheet("font-size: 14px;")
+        # Color preview
+        color_preview_layout = QHBoxLayout()
+        color_preview_layout.setSpacing(15)
+        color_preview_label = QLabel("Color Preview:")
+        color_preview_label.setStyleSheet("font-size: 14px;")
         self.color_display = QLabel()
-        self.color_display.setFixedSize(50, 50)
+        self.color_display.setFixedSize(60, 60)
         self.color_display.setStyleSheet("background-color: #ffffff; border: 2px solid black;")
+        color_preview_layout.addWidget(color_preview_label)
+        color_preview_layout.addWidget(self.color_display)
+        color_preview_layout.addStretch()
+
+        self.body.addLayout(color_preview_layout)
+
+        # RGB Sliders
+        rgb_sliders_layout = QVBoxLayout()
+        rgb_sliders_layout.setSpacing(10)
+        
+        # Red slider
+        red_layout = QHBoxLayout()
+        red_layout.setSpacing(15)
+        red_label = QLabel("Red:")
+        red_label.setStyleSheet("font-size: 14px;")
+        self.red_slider = QSlider(Qt.Orientation.Horizontal)
+        self.red_slider.setMinimum(0)
+        self.red_slider.setMaximum(255)
+        self.red_slider.setValue(255)
+        self.red_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.red_slider.setTickInterval(51)
+        self.red_value_label = QLabel("255")
+        self.red_value_label.setStyleSheet("font-size: 14px; min-width: 30px;")
+        self.red_slider.valueChanged.connect(lambda v: self.update_rgb_display())
+        red_layout.addWidget(red_label)
+        red_layout.addWidget(self.red_slider)
+        red_layout.addWidget(self.red_value_label)
+        rgb_sliders_layout.addLayout(red_layout)
+
+        # Green slider
+        green_layout = QHBoxLayout()
+        green_layout.setSpacing(15)
+        green_label = QLabel("Green:")
+        green_label.setStyleSheet("font-size: 14px;")
+        self.green_slider = QSlider(Qt.Orientation.Horizontal)
+        self.green_slider.setMinimum(0)
+        self.green_slider.setMaximum(255)
+        self.green_slider.setValue(255)
+        self.green_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.green_slider.setTickInterval(51)
+        self.green_value_label = QLabel("255")
+        self.green_value_label.setStyleSheet("font-size: 14px; min-width: 30px;")
+        self.green_slider.valueChanged.connect(lambda v: self.update_rgb_display())
+        green_layout.addWidget(green_label)
+        green_layout.addWidget(self.green_slider)
+        green_layout.addWidget(self.green_value_label)
+        rgb_sliders_layout.addLayout(green_layout)
+
+        # Blue slider
+        blue_layout = QHBoxLayout()
+        blue_layout.setSpacing(15)
+        blue_label = QLabel("Blue:")
+        blue_label.setStyleSheet("font-size: 14px;")
+        self.blue_slider = QSlider(Qt.Orientation.Horizontal)
+        self.blue_slider.setMinimum(0)
+        self.blue_slider.setMaximum(255)
+        self.blue_slider.setValue(255)
+        self.blue_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.blue_slider.setTickInterval(51)
+        self.blue_value_label = QLabel("255")
+        self.blue_value_label.setStyleSheet("font-size: 14px; min-width: 30px;")
+        self.blue_slider.valueChanged.connect(lambda v: self.update_rgb_display())
+        blue_layout.addWidget(blue_label)
+        blue_layout.addWidget(self.blue_slider)
+        blue_layout.addWidget(self.blue_value_label)
+        rgb_sliders_layout.addLayout(blue_layout)
+
+        self.body.addLayout(rgb_sliders_layout)
+
+        # Color picker button
+        color_picker_layout = QHBoxLayout()
+        color_picker_layout.setSpacing(15)
+        color_picker_label = QLabel("Or use color picker:")
+        color_picker_label.setStyleSheet("font-size: 14px;")
         pick_btn = QPushButton("Pick Color")
         pick_btn.clicked.connect(self.pick_color)
-        color_layout.addWidget(color_label)
-        color_layout.addWidget(self.color_display)
-        color_layout.addWidget(pick_btn)
-        color_layout.addStretch()
+        color_picker_layout.addWidget(color_picker_label)
+        color_picker_layout.addWidget(pick_btn)
+        color_picker_layout.addStretch()
 
-        self.body.addLayout(color_layout)
-
-        # RGB input
-        rgb_layout = QHBoxLayout()
-        rgb_layout.setSpacing(15)
-        rgb_label = QLabel("RGB Color:")
-        rgb_label.setStyleSheet("font-size: 14px;")
-        self.rgb_input = QLineEdit("255, 255, 255")
-        self.rgb_input.setMaxLength(11)
-        rgb_layout.addWidget(rgb_label)
-        rgb_layout.addWidget(self.rgb_input)
-        rgb_layout.addStretch()
-
-        self.body.addLayout(rgb_layout)
+        self.body.addLayout(color_picker_layout)
 
         # Duration settings
         duration_layout = QHBoxLayout()
@@ -563,11 +756,30 @@ class LEDSettingsPage(BasePage):
         btn_layout.addWidget(back_btn)
         self.body.addLayout(btn_layout)
 
+    def update_rgb_display(self):
+        """Update the color display and value labels based on slider values"""
+        r = self.red_slider.value()
+        g = self.green_slider.value()
+        b = self.blue_slider.value()
+        
+        # Update value labels
+        self.red_value_label.setText(str(r))
+        self.green_value_label.setText(str(g))
+        self.blue_value_label.setText(str(b))
+        
+        # Update color display
+        color = QColor(r, g, b)
+        self.color_display.setStyleSheet(f"background-color: {color.name()}; border: 2px solid black;")
+
     def pick_color(self):
         color = QColorDialog.getColor()
         if color.isValid():
             self.color_display.setStyleSheet(f"background-color: {color.name()}; border: 2px solid black;")
-            self.rgb_input.setText(f"{color.red()}, {color.green()}, {color.blue()}")
+            # Update sliders to match selected color
+            self.red_slider.setValue(color.red())
+            self.green_slider.setValue(color.green())
+            self.blue_slider.setValue(color.blue())
+            self.update_rgb_display()
 
     @staticmethod
     def normalize_led_color(color_value):
@@ -592,7 +804,11 @@ class LEDSettingsPage(BasePage):
             return
         main_window.led_status = self.led_toggle.isChecked()
         main_window.led_brightness = self.brightness_slider.value()
-        main_window.led_color = self.normalize_led_color(self.rgb_input.text())
+        # Get color from sliders
+        r = self.red_slider.value()
+        g = self.green_slider.value()
+        b = self.blue_slider.value()
+        main_window.led_color = (r, g, b)
         main_window.led_duration = self.duration_spinbox.value()
         main_window.led_interval = self.run_interval_spinbox.value()
 
@@ -1229,16 +1445,27 @@ class SettingsOverviewPage(BasePage):
         sensor_group.setLayout(sensor_layout)
         overview_layout.addWidget(sensor_group)
 
-        # Schedule Settings Overview (Placeholder)
+        # Schedule Settings Overview
         schedule_group = QGroupBox("Schedule")
         schedule_group.setStyleSheet("font-size: 16px; font-weight: bold;")
         schedule_layout = QVBoxLayout()
         schedule_layout.setSpacing(10)
         schedule_layout.setContentsMargins(15, 15, 15, 15)
 
-        schedule_placeholder = QLabel("Schedule Settings will be implemented here.")
-        schedule_placeholder.setStyleSheet("font-size: 14px;")
-        schedule_layout.addWidget(schedule_placeholder)
+        self.schedule_labels = []
+        schedule_settings_texts = [
+            "Status: Disabled",
+            "Start Date: Not set",
+            "End Date: Not set",
+            "Start Time: Not set",
+            "End Time: Not set"
+        ]
+
+        for text in schedule_settings_texts:
+            setting_label = QLabel(text)
+            setting_label.setStyleSheet("font-size: 14px;")
+            schedule_layout.addWidget(setting_label)
+            self.schedule_labels.append(setting_label)
 
         # Center the edit button
         btn_layout = QHBoxLayout()
@@ -1263,11 +1490,70 @@ class SettingsOverviewPage(BasePage):
 
         self.body.addWidget(scroll_area)
 
+        # Reset settings button
+        reset_layout = QHBoxLayout()
+        reset_layout.addStretch()
+        reset_btn = QPushButton("Reset Settings to Default")
+        reset_btn.clicked.connect(self.reset_settings)
+        reset_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #ff6b6b; color: white; border: none; border-radius: 6px;")
+        reset_layout.addWidget(reset_btn)
+        reset_layout.addStretch()
+        self.body.addLayout(reset_layout)
+
         # Back button
         back_btn = QPushButton("Back to Main")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
         self.body.addWidget(back_btn)
+
+    def reset_settings(self):
+        """Reset all settings to default values"""
+        # Reset all settings to defaults
+        self.main_window.water_pump_status = True
+        self.main_window.water_pump_speed = 50
+        self.main_window.water_pump_flow = 10
+        self.main_window.water_pump_duration = 300
+        self.main_window.water_pump_interval = 60
+
+        self.main_window.led_status = True
+        self.main_window.led_brightness = 70
+        self.main_window.led_color = (255, 255, 255)
+        self.main_window.led_duration = 300
+        self.main_window.led_interval = 60
+
+        self.main_window.fan_status = True
+        self.main_window.fan_intensity = 75
+        self.main_window.fan_duration = 300
+        self.main_window.fan_interval = 60
+
+        self.main_window.camera_status = True
+        self.main_window.camera_resolution = "1280x720"
+        self.main_window.camera_exposure = 50
+        self.main_window.camera_duration = 300
+        self.main_window.camera_interval = 60
+
+        self.main_window.sensor_status = True
+        self.main_window.sensor_reading_interval = 5
+        self.main_window.sensor_temp_threshold = 25
+        self.main_window.sensor_humidity_threshold = 60
+        self.main_window.sensor_duration = 300
+        self.main_window.sensor_interval = 60
+
+        self.main_window.usc_status = True
+        self.main_window.usc_threshold = 10
+        self.main_window.voc_status = True
+        self.main_window.voc_threshold = 5
+
+        # Reset schedule
+        self.main_window.schedule_enabled = False
+        self.main_window.schedule_start_date = QDate.currentDate()
+        self.main_window.schedule_end_date = QDate.currentDate().addDays(7)
+        self.main_window.schedule_start_time = QTime(9, 0)
+        self.main_window.schedule_end_time = QTime(17, 0)
+
+        # Update all labels
+        self.update_labels()
+        print("Settings reset to default values")
 
     def update_labels(self):
         # Update water pump labels
@@ -1309,6 +1595,20 @@ class SettingsOverviewPage(BasePage):
         self.sensor_labels[7].setText(f"VOC Threshold: {self.main_window.voc_threshold} ppm")
         self.sensor_labels[8].setText(f"Duration: {self.main_window.sensor_duration} seconds")
         self.sensor_labels[9].setText(f"Interval: {self.main_window.sensor_interval} minutes")
+
+        # Update schedule labels
+        if hasattr(self.main_window, 'schedule_enabled') and self.main_window.schedule_enabled:
+            self.schedule_labels[0].setText("Status: Enabled")
+            self.schedule_labels[1].setText(f"Start Date: {self.main_window.schedule_start_date.toString('MMM dd, yyyy')}")
+            self.schedule_labels[2].setText(f"End Date: {self.main_window.schedule_end_date.toString('MMM dd, yyyy')}")
+            self.schedule_labels[3].setText(f"Start Time: {self.main_window.schedule_start_time.toString('hh:mm AP')}")
+            self.schedule_labels[4].setText(f"End Time: {self.main_window.schedule_end_time.toString('hh:mm AP')}")
+        else:
+            self.schedule_labels[0].setText("Status: Disabled")
+            self.schedule_labels[1].setText("Start Date: Not set")
+            self.schedule_labels[2].setText("End Date: Not set")
+            self.schedule_labels[3].setText("Start Time: Not set")
+            self.schedule_labels[4].setText("End Time: Not set")
 
 class DataGraphPage(BasePage):
     def __init__(self, switch):
@@ -1589,14 +1889,176 @@ class SchedulePage(BasePage):
     def __init__(self, switch):
         super().__init__("Schedule Settings")
 
-        # Placeholder content
-        label = QLabel("Schedule Settings will be implemented here.")
-        self.body.addWidget(label)
+        # Schedule status
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(15)
+        status_label = QLabel("Schedule Status:")
+        status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.schedule_toggle = QCheckBox("Enable Schedule")
+        self.schedule_toggle.setChecked(False)
+        status_layout.addWidget(status_label)
+        status_layout.addWidget(self.schedule_toggle)
+        status_layout.addStretch()
 
+        self.body.addLayout(status_layout)
+
+        # Date range selection
+        date_layout = QVBoxLayout()
+        date_layout.setSpacing(10)
+
+        # Start date
+        start_date_layout = QHBoxLayout()
+        start_date_layout.setSpacing(15)
+        start_date_label = QLabel("Start Date:")
+        start_date_label.setStyleSheet("font-size: 14px;")
+        self.start_date_edit = QDateEdit()
+        self.start_date_edit.setCalendarPopup(True)
+        self.start_date_edit.setDate(QDate.currentDate())
+        self.start_date_edit.setMinimumDate(QDate.currentDate())
+        start_date_layout.addWidget(start_date_label)
+        start_date_layout.addWidget(self.start_date_edit)
+        date_layout.addLayout(start_date_layout)
+
+        # End date
+        end_date_layout = QHBoxLayout()
+        end_date_layout.setSpacing(15)
+        end_date_label = QLabel("End Date:")
+        end_date_label.setStyleSheet("font-size: 14px;")
+        self.end_date_edit = QDateEdit()
+        self.end_date_edit.setCalendarPopup(True)
+        self.end_date_edit.setDate(QDate.currentDate().addDays(7))
+        self.end_date_edit.setMinimumDate(QDate.currentDate())
+        end_date_layout.addWidget(end_date_label)
+        end_date_layout.addWidget(self.end_date_edit)
+        date_layout.addLayout(end_date_layout)
+
+        self.body.addLayout(date_layout)
+
+        # Time range selection
+        time_layout = QVBoxLayout()
+        time_layout.setSpacing(10)
+
+        # Start time
+        start_time_layout = QHBoxLayout()
+        start_time_layout.setSpacing(15)
+        start_time_label = QLabel("Start Time:")
+        start_time_label.setStyleSheet("font-size: 14px;")
+        self.start_time_edit = QTimeEdit()
+        self.start_time_edit.setTime(QTime(9, 0))  # 9:00 AM
+        start_time_layout.addWidget(start_time_label)
+        start_time_layout.addWidget(self.start_time_edit)
+        time_layout.addLayout(start_time_layout)
+
+        # End time
+        end_time_layout = QHBoxLayout()
+        end_time_layout.setSpacing(15)
+        end_time_label = QLabel("End Time:")
+        end_time_label.setStyleSheet("font-size: 14px;")
+        self.end_time_edit = QTimeEdit()
+        self.end_time_edit.setTime(QTime(17, 0))  # 5:00 PM
+        end_time_layout.addWidget(end_time_label)
+        end_time_layout.addWidget(self.end_time_edit)
+        time_layout.addLayout(end_time_layout)
+
+        self.body.addLayout(time_layout)
+
+        # Schedule preview
+        preview_layout = QHBoxLayout()
+        preview_layout.setSpacing(15)
+        preview_label = QLabel("Schedule Preview:")
+        preview_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.schedule_preview = QLabel("No schedule set")
+        self.schedule_preview.setStyleSheet("font-size: 14px; color: #666666;")
+        preview_layout.addWidget(preview_label)
+        preview_layout.addWidget(self.schedule_preview)
+        preview_layout.addStretch()
+
+        self.body.addLayout(preview_layout)
+
+        # Schedule actions
+        actions_layout = QHBoxLayout()
+        actions_layout.setSpacing(15)
+        
+        # Update preview button
+        update_preview_btn = QPushButton("Update Preview")
+        update_preview_btn.clicked.connect(self.update_schedule_preview)
+        
+        # Clear schedule button
+        clear_schedule_btn = QPushButton("Clear Schedule")
+        clear_schedule_btn.clicked.connect(self.clear_schedule)
+        
+        actions_layout.addWidget(update_preview_btn)
+        actions_layout.addWidget(clear_schedule_btn)
+        actions_layout.addStretch()
+
+        self.body.addLayout(actions_layout)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(20)
+        apply_btn = QPushButton("Apply Schedule")
+        apply_btn.clicked.connect(self.apply_schedule)
+        apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
         back_btn = QPushButton("Back to Main")
         style_button(back_btn)
         back_btn.clicked.connect(lambda: switch("main"))
-        self.body.addWidget(back_btn)
+
+        btn_layout.addWidget(apply_btn)
+        btn_layout.addWidget(back_btn)
+        self.body.addLayout(btn_layout)
+
+        # Initialize preview
+        self.update_schedule_preview()
+
+    def update_schedule_preview(self):
+        """Update the schedule preview text"""
+        if self.schedule_toggle.isChecked():
+            start_date = self.start_date_edit.date().toString("MMM dd, yyyy")
+            end_date = self.end_date_edit.date().toString("MMM dd, yyyy")
+            start_time = self.start_time_edit.time().toString("hh:mm AP")
+            end_time = self.end_time_edit.time().toString("hh:mm AP")
+            
+            preview_text = f"Active from {start_date} {start_time} to {end_date} {end_time}"
+            self.schedule_preview.setText(preview_text)
+            self.schedule_preview.setStyleSheet("font-size: 14px; color: #2f4f2d; font-weight: bold;")
+        else:
+            self.schedule_preview.setText("Schedule disabled")
+            self.schedule_preview.setStyleSheet("font-size: 14px; color: #666666;")
+
+    def clear_schedule(self):
+        """Clear the schedule settings"""
+        self.schedule_toggle.setChecked(False)
+        self.start_date_edit.setDate(QDate.currentDate())
+        self.end_date_edit.setDate(QDate.currentDate().addDays(7))
+        self.start_time_edit.setTime(QTime(9, 0))
+        self.end_time_edit.setTime(QTime(17, 0))
+        self.update_schedule_preview()
+        print("Schedule cleared")
+
+    def apply_schedule(self):
+        """Apply the schedule settings"""
+        main_window = self.get_main_window()
+        if main_window is None:
+            return
+        
+        # Store schedule settings
+        main_window.schedule_enabled = self.schedule_toggle.isChecked()
+        main_window.schedule_start_date = self.start_date_edit.date()
+        main_window.schedule_end_date = self.end_date_edit.date()
+        main_window.schedule_start_time = self.start_time_edit.time()
+        main_window.schedule_end_time = self.end_time_edit.time()
+        
+        main_window.overview_page.update_labels()
+        print("Schedule settings applied")
+
+    def get_main_window(self):
+        # Navigate up to MainWindow by traversing parents until finding one with units_system
+        current = self
+        while current:
+            if hasattr(current, 'units_system'):
+                return current
+            current = current.parent()
+        return None
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -1667,33 +2129,6 @@ class MainWindow(QMainWindow):
         self.overview_page = SettingsOverviewPage(self.switch_page, self)
         self.stack.addWidget(self.overview_page)
 
-        # Navigation bar
-        nav_toolbar = self.addToolBar("Navigation")
-        self.back_btn = QPushButton("← Back")
-        self.back_btn.clicked.connect(self.go_back)
-        style_button(self.back_btn)
-        self.forward_btn = QPushButton("Forward →")
-        self.forward_btn.clicked.connect(self.go_forward)
-        style_button(self.forward_btn)
-        self.save_btn = QPushButton("Save Changes")
-        self.save_btn.clicked.connect(self.save_changes)
-        style_button(self.save_btn)
-
-        spacer_left = QWidget()
-        spacer_left.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        nav_toolbar.addWidget(spacer_left)
-
-        nav_toolbar.addWidget(self.back_btn)
-        nav_toolbar.addSeparator()
-        nav_toolbar.addWidget(self.forward_btn)
-        nav_toolbar.addSeparator()
-        nav_toolbar.addWidget(self.save_btn)
-
-        spacer_right = QWidget()
-        spacer_right.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        nav_toolbar.addWidget(spacer_right)
-
-        self.update_navigation_buttons()
 
         # Wrap the stacked widget in a scroll area for scrolling capability
         self.scroll_area = QScrollArea()
