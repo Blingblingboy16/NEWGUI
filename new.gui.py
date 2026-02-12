@@ -416,13 +416,21 @@ class MainPage(BasePage):
         print(f"Sent to Arduino: {command.strip()}")
 
     def send_fan_settings(self, ser, main_window):
-        """Send fan settings to Arduino"""
-        status = "ON" if main_window.fan_status else "OFF"
-        intensity = main_window.fan_intensity
-        duration = main_window.fan_duration
-        interval = main_window.fan_interval
+        """Send fan settings to Arduino using proper command format"""
+        if not main_window.fan_status:
+            # Turn off fan
+            command = "FAN,OFF\n"
+            ser.write(command.encode())
+            print(f"Sent to Arduino: {command.strip()}")
+            return
+
+        # Use saved fan intensity as speed (0-255 range)
+        fan_speed = int((main_window.fan_intensity / 100) * 255)
+        duration = main_window.fan_duration  # in seconds
+        interval = main_window.fan_interval  # in minutes
         
-        command = f"FAN,{status},{intensity},{duration},{interval}\n"
+        # Send FAN command in format: FAN,ON,speed,runSec,intervalMin
+        command = f"FAN,ON,{fan_speed},{duration},{interval}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
