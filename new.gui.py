@@ -440,14 +440,14 @@ class MainPage(BasePage):
         reading_interval = main_window.sensor_reading_interval
         temp_threshold = main_window.sensor_temp_threshold
         humidity_threshold = main_window.sensor_humidity_threshold
-        usc_status = "ON" if main_window.usc_status else "OFF"
-        usc_threshold = main_window.usc_threshold
+        dht_status = "ON" if main_window.dht_status else "OFF"
+        dht_threshold = main_window.dht_threshold
         voc_status = "ON" if main_window.voc_status else "OFF"
         voc_threshold = main_window.voc_threshold
         duration = main_window.sensor_duration
         interval = main_window.sensor_interval
         
-        command = f"SENSOR,{status},{reading_interval},{temp_threshold},{humidity_threshold},{usc_status},{usc_threshold},{voc_status},{voc_threshold},{duration},{interval}\n"
+        command = f"SENSOR,{status},{reading_interval},{temp_threshold},{humidity_threshold},{dht_status},{dht_threshold},{voc_status},{voc_threshold},{duration},{interval}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
@@ -1123,33 +1123,33 @@ class SensorPage(BasePage):
 
         self.body.addLayout(humidity_layout)
 
-        # USC Sensor status toggle
-        usc_status_layout = QHBoxLayout()
-        usc_status_layout.setSpacing(15)
-        usc_status_label = QLabel("USC Sensor Status:")
-        usc_status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.usc_toggle = QCheckBox("On/Off")
-        self.usc_toggle.setChecked(True)
-        usc_status_layout.addWidget(usc_status_label)
-        usc_status_layout.addWidget(self.usc_toggle)
-        usc_status_layout.addStretch()
+        # DHT Sensor status toggle
+        dht_status_layout = QHBoxLayout()
+        dht_status_layout.setSpacing(15)
+        dht_status_label = QLabel("DHT11 Sensor Status:")
+        dht_status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.dht_toggle = QCheckBox("On/Off")
+        self.dht_toggle.setChecked(True)
+        dht_status_layout.addWidget(dht_status_label)
+        dht_status_layout.addWidget(self.dht_toggle)
+        dht_status_layout.addStretch()
 
-        self.body.addLayout(usc_status_layout)
+        self.body.addLayout(dht_status_layout)
 
-        # USC threshold
-        usc_layout = QHBoxLayout()
-        usc_layout.setSpacing(15)
-        self.usc_label = QLabel("USC Threshold (cm):")
-        self.usc_label.setStyleSheet("font-size: 14px;")
-        self.usc_spinbox = QSpinBox()
-        self.usc_spinbox.setMinimum(0)
-        self.usc_spinbox.setMaximum(100)
-        self.usc_spinbox.setValue(10)
-        usc_layout.addWidget(self.usc_label)
-        usc_layout.addWidget(self.usc_spinbox)
-        usc_layout.addStretch()
+        # DHT threshold
+        dht_layout = QHBoxLayout()
+        dht_layout.setSpacing(15)
+        self.dht_label = QLabel("DHT11 Threshold (cm):")
+        self.dht_label.setStyleSheet("font-size: 14px;")
+        self.dht_spinbox = QSpinBox()
+        self.dht_spinbox.setMinimum(0)
+        self.dht_spinbox.setMaximum(100)
+        self.dht_spinbox.setValue(10)
+        dht_layout.addWidget(self.dht_label)
+        dht_layout.addWidget(self.dht_spinbox)
+        dht_layout.addStretch()
 
-        self.body.addLayout(usc_layout)
+        self.body.addLayout(dht_layout)
 
         # VOC Sensor status toggle
         voc_status_layout = QHBoxLayout()
@@ -1231,10 +1231,10 @@ class SensorPage(BasePage):
         if main_window is not None:
             if main_window.units_system == "metric":
                 self.temp_label.setText("Temperature Threshold (°C):")
-                self.usc_label.setText("USC Threshold (cm):")
+                self.dht_label.setText("DHT11 Threshold (cm):")
             else:
                 self.temp_label.setText("Temperature Threshold (°F):")
-                self.usc_label.setText("USC Threshold (inches):")
+                self.dht_label.setText("DHT11 Threshold (inches):")
 
     def apply_sensor(self):
         main_window = self.get_main_window()
@@ -1244,8 +1244,8 @@ class SensorPage(BasePage):
         main_window.sensor_reading_interval = self.interval_spinbox.value()
         main_window.sensor_temp_threshold = self.temp_spinbox.value()
         main_window.sensor_humidity_threshold = self.humidity_spinbox.value()
-        main_window.usc_status = self.usc_toggle.isChecked()
-        main_window.usc_threshold = self.usc_spinbox.value()
+        main_window.dht_status = self.dht_toggle.isChecked()
+        main_window.dht_threshold = self.dht_spinbox.value()
         main_window.voc_status = self.voc_toggle.isChecked()
         main_window.voc_threshold = self.voc_spinbox.value()
         main_window.sensor_duration = self.duration_spinbox.value()
@@ -1426,8 +1426,8 @@ class SettingsOverviewPage(BasePage):
             "Reading Interval: 5 minutes",
             "Temperature Threshold: 25°C",
             "Humidity Threshold: 60%",
-            "USC Status: On",
-            "USC Threshold: 10 cm",
+            "DHT11 Status: On",
+            "DHT11 Threshold: 10 cm",
             "VOC Status: On",
             "VOC Threshold: 5 ppm",
             "Duration: 300 seconds",
@@ -1547,8 +1547,8 @@ class SettingsOverviewPage(BasePage):
         self.main_window.sensor_duration = 300
         self.main_window.sensor_interval = 60
 
-        self.main_window.usc_status = True
-        self.main_window.usc_threshold = 10
+        self.main_window.dht_status = True
+        self.main_window.dht_threshold = 10
         self.main_window.voc_status = True
         self.main_window.voc_threshold = 5
 
@@ -1597,8 +1597,8 @@ class SettingsOverviewPage(BasePage):
         self.sensor_labels[1].setText(f"Reading Interval: {self.main_window.sensor_reading_interval} minutes")
         self.sensor_labels[2].setText(f"Temperature Threshold: {self.main_window.sensor_temp_threshold}°C")
         self.sensor_labels[3].setText(f"Humidity Threshold: {self.main_window.sensor_humidity_threshold}%")
-        self.sensor_labels[4].setText(f"USC Status: {'On' if self.main_window.usc_status else 'Off'}")
-        self.sensor_labels[5].setText(f"USC Threshold: {self.main_window.usc_threshold} cm")
+        self.sensor_labels[4].setText(f"DHT11 Status: {'On' if self.main_window.dht_status else 'Off'}")
+        self.sensor_labels[5].setText(f"DHT11 Threshold: {self.main_window.dht_threshold} cm")
         self.sensor_labels[6].setText(f"VOC Status: {'On' if self.main_window.voc_status else 'Off'}")
         self.sensor_labels[7].setText(f"VOC Threshold: {self.main_window.voc_threshold} ppm")
         self.sensor_labels[8].setText(f"Duration: {self.main_window.sensor_duration} seconds")
@@ -1720,7 +1720,7 @@ class DataGraphPage(BasePage):
         sensor_names = [
             ("Temperature", "°C"),
             ("Humidity", "%"),
-            ("USC", "cm"),
+            ("DHT11", "cm"),
             ("VOC", "ppm")
         ]
 
@@ -2112,8 +2112,8 @@ class MainWindow(QMainWindow):
         self.sensor_duration = 300
         self.sensor_interval = 60
 
-        self.usc_status = True
-        self.usc_threshold = 10
+        self.dht_status = True
+        self.dht_threshold = 10
         self.voc_status = True
         self.voc_threshold = 5
 
