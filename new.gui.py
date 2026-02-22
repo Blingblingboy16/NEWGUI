@@ -1093,36 +1093,6 @@ class SensorPage(BasePage):
 
         self.body.addLayout(interval_layout)
 
-        # Temperature threshold
-        temp_layout = QHBoxLayout()
-        temp_layout.setSpacing(15)
-        self.temp_label = QLabel("Temperature Threshold (°C):")
-        self.temp_label.setStyleSheet("font-size: 14px;")
-        self.temp_spinbox = QSpinBox()
-        self.temp_spinbox.setMinimum(0)
-        self.temp_spinbox.setMaximum(50)
-        self.temp_spinbox.setValue(25)
-        temp_layout.addWidget(self.temp_label)
-        temp_layout.addWidget(self.temp_spinbox)
-        temp_layout.addStretch()
-
-        self.body.addLayout(temp_layout)
-
-        # Humidity threshold
-        humidity_layout = QHBoxLayout()
-        humidity_layout.setSpacing(15)
-        humidity_label = QLabel("Humidity Threshold (%):")
-        humidity_label.setStyleSheet("font-size: 14px;")
-        self.humidity_spinbox = QSpinBox()
-        self.humidity_spinbox.setMinimum(0)
-        self.humidity_spinbox.setMaximum(100)
-        self.humidity_spinbox.setValue(60)
-        humidity_layout.addWidget(humidity_label)
-        humidity_layout.addWidget(self.humidity_spinbox)
-        humidity_layout.addStretch()
-
-        self.body.addLayout(humidity_layout)
-
         # DHT Sensor status toggle
         dht_status_layout = QHBoxLayout()
         dht_status_layout.setSpacing(15)
@@ -1179,36 +1149,6 @@ class SensorPage(BasePage):
 
         self.body.addLayout(voc_layout)
 
-        # Duration settings
-        duration_layout = QHBoxLayout()
-        duration_layout.setSpacing(15)
-        duration_label = QLabel("Run Duration (seconds):")
-        duration_label.setStyleSheet("font-size: 14px;")
-        self.duration_spinbox = QSpinBox()
-        self.duration_spinbox.setMinimum(1)
-        self.duration_spinbox.setMaximum(3600)
-        self.duration_spinbox.setValue(300)
-        duration_layout.addWidget(duration_label)
-        duration_layout.addWidget(self.duration_spinbox)
-        duration_layout.addStretch()
-
-        self.body.addLayout(duration_layout)
-
-        # Interval settings
-        interval_layout = QHBoxLayout()
-        interval_layout.setSpacing(15)
-        interval_label = QLabel("Run Interval (minutes):")
-        interval_label.setStyleSheet("font-size: 14px;")
-        self.run_interval_spinbox = QSpinBox()
-        self.run_interval_spinbox.setMinimum(1)
-        self.run_interval_spinbox.setMaximum(1440)
-        self.run_interval_spinbox.setValue(60)
-        interval_layout.addWidget(interval_label)
-        interval_layout.addWidget(self.run_interval_spinbox)
-        interval_layout.addStretch()
-
-        self.body.addLayout(interval_layout)
-
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(20)
@@ -1242,14 +1182,10 @@ class SensorPage(BasePage):
             return
         main_window.sensor_status = self.sensor_toggle.isChecked()
         main_window.sensor_reading_interval = self.interval_spinbox.value()
-        main_window.sensor_temp_threshold = self.temp_spinbox.value()
-        main_window.sensor_humidity_threshold = self.humidity_spinbox.value()
         main_window.dht_status = self.dht_toggle.isChecked()
         main_window.dht_threshold = self.dht_spinbox.value()
         main_window.voc_status = self.voc_toggle.isChecked()
         main_window.voc_threshold = self.voc_spinbox.value()
-        main_window.sensor_duration = self.duration_spinbox.value()
-        main_window.sensor_interval = self.run_interval_spinbox.value()
         main_window.overview_page.update_labels()
         print("Sensor settings applied")
 
@@ -2219,8 +2155,11 @@ class MainWindow(QMainWindow):
         self.overview_page.update_labels()
 
     def update_navigation_buttons(self):
-        self.back_btn.setEnabled(self.current_history_index > 0)
-        self.forward_btn.setEnabled(self.current_history_index < len(self.page_history) - 1)
+        # Check if navigation buttons exist before trying to access them
+        if hasattr(self, 'back_btn'):
+            self.back_btn.setEnabled(self.current_history_index > 0)
+        if hasattr(self, 'forward_btn'):
+            self.forward_btn.setEnabled(self.current_history_index < len(self.page_history) - 1)
 
     def wheelEvent(self, event):
         self.scroll_area.verticalScrollBar().setValue(
