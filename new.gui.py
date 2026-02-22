@@ -1579,23 +1579,11 @@ class DataGraphPage(BasePage):
         self.interval_label.setStyleSheet("font-size: 14px; font-weight: bold;")
         plant_layout.addWidget(self.interval_label)
 
-        # Run experiment button
-        run_btn = QPushButton("Load Experiment Data")
-        style_button(run_btn)
-        run_btn.clicked.connect(self.update_plant_graph)
-
         # Reset graph button
         reset_btn = QPushButton("Reset Graph")
         style_button(reset_btn)
         reset_btn.clicked.connect(self.reset_graph)
-
-        # Button layout
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(20)
-        button_layout.addWidget(run_btn)
-        button_layout.addWidget(reset_btn)
-        button_layout.addStretch()
-        plant_layout.addLayout(button_layout)
+        plant_layout.addWidget(reset_btn)
 
         # Add plant graph
         plant_layout.addWidget(self.plant_graph)
@@ -1620,36 +1608,48 @@ class DataGraphPage(BasePage):
 
         # Sensor Data Tab
         sensor_tab = QWidget()
-        sensor_layout = QHBoxLayout(sensor_tab)
+        sensor_layout = QVBoxLayout(sensor_tab)
         sensor_layout.setSpacing(20)
 
-        # Left side: Sensor graph
-        graph_layout = QVBoxLayout()
-        self.sensor_graph = GraphCanvas(self)
-        graph_layout.addWidget(self.sensor_graph)
+        # Create tab widget for different sensor graphs
+        self.sensor_tabs = QTabWidget()
+        
+        # Temperature graph
+        temp_widget = QWidget()
+        temp_layout = QVBoxLayout(temp_widget)
+        self.temp_graph = GraphCanvas(self)
+        temp_layout.addWidget(self.temp_graph)
+        self.sensor_tabs.addTab(temp_widget, "Temperature")
 
-        # Update sensor graph button
-        update_sensor_btn = QPushButton("Update Sensor Graph")
-        style_button(update_sensor_btn)
-        update_sensor_btn.clicked.connect(self.update_sensor_graph)
-        graph_layout.addWidget(update_sensor_btn)
+        # Humidity graph
+        humidity_widget = QWidget()
+        humidity_layout = QVBoxLayout(humidity_widget)
+        self.humidity_graph = GraphCanvas(self)
+        humidity_layout.addWidget(self.humidity_graph)
+        self.sensor_tabs.addTab(humidity_widget, "Humidity")
 
-        sensor_layout.addLayout(graph_layout, 3)  # Stretch factor 3 for graph
+        # Air Quality graph (VOC)
+        air_quality_widget = QWidget()
+        air_quality_layout = QVBoxLayout(air_quality_widget)
+        self.air_quality_graph = GraphCanvas(self)
+        air_quality_layout.addWidget(self.air_quality_graph)
+        self.sensor_tabs.addTab(air_quality_widget, "Air Quality")
+
+        sensor_layout.addWidget(self.sensor_tabs)
 
         # Right side: Sensor tracking info
-        sensor_info_group = QGroupBox("Tracked Sensors")
+        sensor_info_group = QGroupBox("Live Sensor Data")
         sensor_info_group.setStyleSheet("font-size: 16px; font-weight: bold;")
         sensor_info_layout = QVBoxLayout()
         sensor_info_layout.setSpacing(10)
         sensor_info_layout.setContentsMargins(15, 15, 15, 15)
 
-        # Sensor indicators
+        # Sensor indicators with live data
         self.sensor_indicators = []
         sensor_names = [
             ("Temperature", "°C"),
             ("Humidity", "%"),
-            ("DHT11", "cm"),
-            ("VOC", "ppm")
+            ("Air Quality", "ppm")
         ]
 
         for name, unit in sensor_names:
@@ -1657,17 +1657,20 @@ class DataGraphPage(BasePage):
             indicator_layout.setSpacing(10)
             status_label = QLabel("●")
             status_label.setStyleSheet("color: green; font-size: 16px; font-weight: bold;")
-            name_label = QLabel(f"{name} ({unit})")
-            name_label.setStyleSheet("font-size: 14px;")
+            name_label = QLabel(f"{name}:")
+            name_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+            value_label = QLabel("N/A")
+            value_label.setStyleSheet("font-size: 14px; color: #666666;")
             indicator_layout.addWidget(status_label)
             indicator_layout.addWidget(name_label)
+            indicator_layout.addWidget(value_label)
             indicator_layout.addStretch()
             sensor_info_layout.addLayout(indicator_layout)
-            self.sensor_indicators.append((status_label, name_label))
+            self.sensor_indicators.append((status_label, name_label, value_label))
 
         sensor_info_layout.addStretch()
         sensor_info_group.setLayout(sensor_info_layout)
-        sensor_layout.addWidget(sensor_info_group, 1)  # Stretch factor 1 for info panel
+        sensor_layout.addWidget(sensor_info_group)
 
         self.tabs.addTab(sensor_tab, "Sensor Data")
 
@@ -1680,6 +1683,40 @@ class DataGraphPage(BasePage):
         bottom_layout.addWidget(back_btn)
         bottom_layout.addStretch()
         self.body.addLayout(bottom_layout)
+
+        # Initialize live data timer
+        self.live_data_timer = None
+        self.start_live_data_updates()
+
+    def start_live_data_updates(self):
+        """Start the timer for live sensor data updates based on user interval setting"""
+        main_window = self.get_main_window()
+        if main_window is not None and main_window.sensor_status:
+            interval_minutes = main_window.sensor_reading_interval
+            interval_milliseconds = interval_minutes * 60 * 1000  # Convert to milliseconds
+            if self.live_data_timer is None:
+                self.live_data_timer = self.startTimer(interval_milliseconds)
+
+    def timerEvent(self, event):
+        """Handle timer events for live data updates"""
+        self.update_live_sensor_data()
+
+    def update_live_sensor_data(self):
+        """Update the live sensor data display"""
+        # For now, generate random data to simulate live updates
+        # In a real implementation, this would read from the Arduino
+        
+        # Temperature: 20-30°C
+        temp_value = round(20 + (random.random() * 10), 1)
+        self.sensor_indicators[0][2].setText(f"{temp_value}°C")
+        
+        # Humidity: 40-80%
+        humidity_value = round(40 + (random.random() * 40), 1)
+        self.sensor_indicators[1][2].setText(f"{humidity_value}%")
+        
+        # Air Quality: 0-100 ppm
+        air_quality_value = round(random.random() * 100, 1)
+        self.sensor_indicators[2][2].setText(f"{air_quality_value} ppm")
 
         # Initialize experiments
         self.load_experiments()
