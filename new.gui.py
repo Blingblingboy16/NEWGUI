@@ -1360,14 +1360,10 @@ class SettingsOverviewPage(BasePage):
         sensor_settings_texts = [
             "Status: On",
             "Reading Interval: 5 minutes",
-            "Temperature Threshold: 25°C",
-            "Humidity Threshold: 60%",
             "DHT11 Status: On",
             "DHT11 Threshold: 10 cm",
             "VOC Status: On",
-            "VOC Threshold: 5 ppm",
-            "Duration: 300 seconds",
-            "Interval: 60 minutes"
+            "VOC Threshold: 5 ppm"
         ]
 
         for text in sensor_settings_texts:
@@ -1531,14 +1527,10 @@ class SettingsOverviewPage(BasePage):
         # Update sensor labels
         self.sensor_labels[0].setText(f"Status: {'On' if self.main_window.sensor_status else 'Off'}")
         self.sensor_labels[1].setText(f"Reading Interval: {self.main_window.sensor_reading_interval} minutes")
-        self.sensor_labels[2].setText(f"Temperature Threshold: {self.main_window.sensor_temp_threshold}°C")
-        self.sensor_labels[3].setText(f"Humidity Threshold: {self.main_window.sensor_humidity_threshold}%")
-        self.sensor_labels[4].setText(f"DHT11 Status: {'On' if self.main_window.dht_status else 'Off'}")
-        self.sensor_labels[5].setText(f"DHT11 Threshold: {self.main_window.dht_threshold} cm")
-        self.sensor_labels[6].setText(f"VOC Status: {'On' if self.main_window.voc_status else 'Off'}")
-        self.sensor_labels[7].setText(f"VOC Threshold: {self.main_window.voc_threshold} ppm")
-        self.sensor_labels[8].setText(f"Duration: {self.main_window.sensor_duration} seconds")
-        self.sensor_labels[9].setText(f"Interval: {self.main_window.sensor_interval} minutes")
+        self.sensor_labels[2].setText(f"DHT11 Status: {'On' if self.main_window.dht_status else 'Off'}")
+        self.sensor_labels[3].setText(f"DHT11 Threshold: {self.main_window.dht_threshold} cm")
+        self.sensor_labels[4].setText(f"VOC Status: {'On' if self.main_window.voc_status else 'Off'}")
+        self.sensor_labels[5].setText(f"VOC Threshold: {self.main_window.voc_threshold} ppm")
 
         # Update schedule labels
         if hasattr(self.main_window, 'schedule_enabled') and self.main_window.schedule_enabled:
