@@ -149,17 +149,18 @@ class MainPage(BasePage):
         view_data_btn.clicked.connect(lambda: switch("graph"))
         view_data_btn.setStyleSheet("""
             QPushButton {
-                background-color: #e8f5e9;
-                color: #2f4f2d;
-                border: 2px solid #a8d5a2;
+                background-color: #a8d5a2;
+                color: #1a3d1a;
+                border: 2px solid #6bb37a;
                 border-radius: 8px;
                 padding: 12px 20px;
                 font-size: 14px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #d4edda;
-                border-color: #86c291;
+                background-color: #6bb37a;
+                color: white;
+                border-color: #4a8a55;
             }
         """)
         data_btn_layout.addWidget(view_data_btn)
@@ -264,17 +265,18 @@ class MainPage(BasePage):
         overview_btn.clicked.connect(lambda: switch("overview"))
         overview_btn.setStyleSheet("""
             QPushButton {
-                background-color: #fff3cd;
-                color: #856404;
-                border: 2px solid #ffeaa7;
+                background-color: #a8d5a2;
+                color: #1a3d1a;
+                border: 2px solid #6bb37a;
                 border-radius: 8px;
                 padding: 12px 24px;
                 font-size: 16px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #ffeaa7;
-                border-color: #f1c40f;
+                background-color: #6bb37a;
+                color: white;
+                border-color: #4a8a55;
             }
         """)
 
@@ -283,17 +285,18 @@ class MainPage(BasePage):
         send_btn.clicked.connect(self.send_to_nanolab)
         send_btn.setStyleSheet("""
             QPushButton {
-                background-color: #d1ecf1;
-                color: #0c5460;
-                border: 2px solid #bee5eb;
+                background-color: #a8d5a2;
+                color: #1a3d1a;
+                border: 2px solid #6bb37a;
                 border-radius: 8px;
                 padding: 12px 24px;
                 font-size: 16px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #bee5eb;
-                border-color: #85c7cf;
+                background-color: #6bb37a;
+                color: white;
+                border-color: #4a8a55;
             }
         """)
 
@@ -1676,6 +1679,76 @@ class DataGraphPage(BasePage):
         sensor_info_group.setLayout(sensor_info_layout)
         sensor_layout.addWidget(sensor_info_group)
 
+        # Tracking control buttons
+        tracking_btn_layout = QHBoxLayout()
+        tracking_btn_layout.setSpacing(15)
+        
+        self.start_tracking_btn = QPushButton("Start Sensor Tracking")
+        self.start_tracking_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #219a52;
+            }
+        """)
+        self.start_tracking_btn.clicked.connect(self.start_sensor_tracking)
+        
+        self.stop_tracking_btn = QPushButton("Stop Sensor Tracking")
+        self.stop_tracking_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        self.stop_tracking_btn.clicked.connect(self.stop_sensor_tracking)
+        self.stop_tracking_btn.setEnabled(False)
+        
+        self.clear_tracking_btn = QPushButton("Clear Tracking Data")
+        self.clear_tracking_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #a8d5a2;
+                color: #1a3d1a;
+                border: 2px solid #6bb37a;
+                border-radius: 8px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #6bb37a;
+                color: white;
+                border-color: #4a8a55;
+            }
+        """)
+        self.clear_tracking_btn.clicked.connect(self.clear_tracking_data)
+        
+        tracking_btn_layout.addWidget(self.start_tracking_btn)
+        tracking_btn_layout.addWidget(self.stop_tracking_btn)
+        tracking_btn_layout.addWidget(self.clear_tracking_btn)
+        tracking_btn_layout.addStretch()
+        
+        sensor_layout.addLayout(tracking_btn_layout)
+
+        # Tracking status label
+        self.tracking_status_label = QLabel("Tracking: Not Started")
+        self.tracking_status_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #666666;")
+        sensor_layout.addWidget(self.tracking_status_label)
+
         self.tabs.addTab(sensor_tab, "Sensor Data")
 
         # Bottom layout with back button
@@ -1690,6 +1763,17 @@ class DataGraphPage(BasePage):
 
         # Initialize live data timer
         self.live_data_timer = None
+        
+        # Sensor tracking data storage
+        self.tracking_active = False
+        self.tracking_start_time = None
+        self.tracking_data = {
+            'time': [],
+            'temperature': [],
+            'humidity': [],
+            'voc': []
+        }
+        
         self.start_live_data_updates()
 
     def start_live_data_updates(self):
@@ -1716,6 +1800,143 @@ class DataGraphPage(BasePage):
             self.live_data_timer = self.startTimer(interval_milliseconds)
             print(f"Timer restarted with new interval: {interval_minutes} minutes")
 
+    def start_sensor_tracking(self):
+        """Start tracking sensor data with time stamps"""
+        self.tracking_active = True
+        self.tracking_start_time = time.time()
+        # Clear previous tracking data
+        self.tracking_data = {
+            'time': [],
+            'temperature': [],
+            'humidity': [],
+            'voc': []
+        }
+        
+        # Ensure timer is started/restarted
+        main_window = self.get_main_window()
+        if main_window is not None:
+            interval_minutes = main_window.sensor_reading_interval
+            interval_milliseconds = interval_minutes * 60 * 1000
+            if self.live_data_timer is not None:
+                self.killTimer(self.live_data_timer)
+            self.live_data_timer = self.startTimer(interval_milliseconds)
+            print(f"Timer started with interval: {interval_minutes} minutes ({interval_milliseconds}ms)")
+        
+        # Update UI
+        self.start_tracking_btn.setEnabled(False)
+        self.stop_tracking_btn.setEnabled(True)
+        self.tracking_status_label.setText("Tracking: Active")
+        self.tracking_status_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #27ae60;")
+        
+        # Get initial reading
+        self.update_live_sensor_data()
+        
+        print("Sensor tracking started")
+
+    def stop_sensor_tracking(self):
+        """Stop tracking sensor data"""
+        self.tracking_active = False
+        
+        # Update UI
+        self.start_tracking_btn.setEnabled(True)
+        self.stop_tracking_btn.setEnabled(False)
+        self.tracking_status_label.setText(f"Tracking: Stopped ({len(self.tracking_data['time'])} data points)")
+        self.tracking_status_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #e74c3c;")
+        
+        # Update graphs with final data
+        self.update_sensor_graphs()
+        
+        print(f"Sensor tracking stopped. Collected {len(self.tracking_data['time'])} data points")
+
+    def clear_tracking_data(self):
+        """Clear tracking data and reset graphs"""
+        self.tracking_active = False
+        self.tracking_start_time = None
+        self.tracking_data = {
+            'time': [],
+            'temperature': [],
+            'humidity': [],
+            'voc': []
+        }
+        
+        # Reset graphs
+        self.temp_graph.ax.clear()
+        self.temp_graph.ax.set_title("Temperature Over Time", fontsize=14, fontweight='bold')
+        self.temp_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.temp_graph.ax.set_ylabel("Temperature (°C)", fontsize=12)
+        self.temp_graph.ax.grid(True, alpha=0.3)
+        self.temp_graph.draw()
+        
+        self.humidity_graph.ax.clear()
+        self.humidity_graph.ax.set_title("Humidity Over Time", fontsize=14, fontweight='bold')
+        self.humidity_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.humidity_graph.ax.set_ylabel("Humidity (%)", fontsize=12)
+        self.humidity_graph.ax.grid(True, alpha=0.3)
+        self.humidity_graph.draw()
+        
+        self.air_quality_graph.ax.clear()
+        self.air_quality_graph.ax.set_title("Air Quality (VOC) Over Time", fontsize=14, fontweight='bold')
+        self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.air_quality_graph.ax.set_ylabel("VOC (ppm)", fontsize=12)
+        self.air_quality_graph.ax.grid(True, alpha=0.3)
+        self.air_quality_graph.draw()
+        
+        # Update UI
+        self.start_tracking_btn.setEnabled(True)
+        self.stop_tracking_btn.setEnabled(False)
+        self.tracking_status_label.setText("Tracking: Not Started")
+        self.tracking_status_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #666666;")
+        
+        print("Tracking data cleared")
+
+    def update_sensor_graphs(self):
+        """Update all sensor graphs with tracked data"""
+        if len(self.tracking_data['time']) == 0:
+            return
+        
+        # Get temperature unit
+        temp_unit = self.get_display_temperature_unit()
+        
+        # Convert temperature data if imperial
+        display_temps = []
+        for temp_c in self.tracking_data['temperature']:
+            if temp_unit == "°F":
+                display_temps.append((temp_c * 9/5) + 32)
+            else:
+                display_temps.append(temp_c)
+            
+        # Temperature graph
+        self.temp_graph.ax.clear()
+        self.temp_graph.ax.plot(self.tracking_data['time'], display_temps, 
+                                'r-', linewidth=2, marker='o', markersize=4)
+        self.temp_graph.ax.set_title("Temperature Over Time", fontsize=14, fontweight='bold')
+        self.temp_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.temp_graph.ax.set_ylabel(f"Temperature ({temp_unit})", fontsize=12)
+        self.temp_graph.ax.grid(True, alpha=0.3)
+        self.temp_graph.draw()
+        
+        # Humidity graph
+        self.humidity_graph.ax.clear()
+        self.humidity_graph.ax.plot(self.tracking_data['time'], self.tracking_data['humidity'], 
+                                     'b-', linewidth=2, marker='s', markersize=4)
+        self.humidity_graph.ax.set_title("Humidity Over Time", fontsize=14, fontweight='bold')
+        self.humidity_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.humidity_graph.ax.set_ylabel("Humidity (%)", fontsize=12)
+        self.humidity_graph.ax.grid(True, alpha=0.3)
+        self.humidity_graph.draw()
+        
+        # Air Quality graph
+        self.air_quality_graph.ax.clear()
+        self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'], 
+                                       'g-', linewidth=2, marker='^', markersize=4)
+        self.air_quality_graph.ax.set_title("Air Quality (VOC) Over Time", fontsize=14, fontweight='bold')
+        self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.air_quality_graph.ax.set_ylabel("VOC (ppm)", fontsize=12)
+        self.air_quality_graph.ax.grid(True, alpha=0.3)
+        self.air_quality_graph.draw()
+        
+        print("Sensor graphs updated")
+
     def timerEvent(self, event):
         """Handle timer events for live data updates"""
         self.update_live_sensor_data()
@@ -1726,6 +1947,8 @@ class DataGraphPage(BasePage):
         try:
             # Find Arduino port
             port = self.find_arduino_port()
+            temp_value = humidity_value = voc_value = None
+            
             if port:
                 # Open serial connection
                 ser = serial.Serial(port, 9600, timeout=1)
@@ -1745,47 +1968,95 @@ class DataGraphPage(BasePage):
                                 voc_value = float(parts[2])
                                 dht_value = float(parts[3])
                                 
-                                # Update temperature
-                                self.sensor_indicators[0][2].setText(f"{temp_value}°C")
-                                
-                                # Update humidity
-                                self.sensor_indicators[1][2].setText(f"{humidity_value}%")
-                                
-                                # Update air quality (VOC)
-                                self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
-                                
-                                # Force immediate update of the display
-                                for indicator in self.sensor_indicators:
-                                    indicator[2].repaint()
-                                
-                                print(f"Updated sensor data: Temp={temp_value}°C, Humidity={humidity_value}%, VOC={voc_value} ppm")
-                                
                             except ValueError as e:
                                 print(f"Error parsing sensor data: {e}")
                 
                 # Close serial connection
                 ser.close()
-            else:
-                # Fallback to random data if no Arduino found
-                self.generate_fallback_data()
+            
+            # If we didn't get data from Arduino, use fallback
+            if temp_value is None:
+                temp_value, humidity_value, voc_value = self.get_fallback_values()
+            
+            # Get display temperature with correct unit
+            display_temp, temp_unit = self.get_display_temperature(temp_value)
+                
+            # Update display
+            self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
+            self.sensor_indicators[1][2].setText(f"{humidity_value}%")
+            self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
+            
+            # Update the indicator label for temperature
+            self.sensor_indicators[0][1].setText("Temperature:")
+            
+            # Force immediate update of the display
+            for indicator in self.sensor_indicators:
+                indicator[2].repaint()
+            
+            # Store data if tracking is active (always store in Celsius for consistency)
+            if self.tracking_active and self.tracking_start_time is not None:
+                elapsed_minutes = (time.time() - self.tracking_start_time) / 60.0
+                self.tracking_data['time'].append(elapsed_minutes)
+                self.tracking_data['temperature'].append(temp_value)  # Store in Celsius
+                self.tracking_data['humidity'].append(humidity_value)
+                self.tracking_data['voc'].append(voc_value)
+                
+                # Update graphs in real-time
+                self.update_sensor_graphs()
+                
         except Exception as e:
             print(f"Error reading from Arduino: {e}")
             # Fallback to random data
-            self.generate_fallback_data()
+            temp_value, humidity_value, voc_value = self.get_fallback_values()
+            
+            # Get display temperature with correct unit
+            display_temp, temp_unit = self.get_display_temperature(temp_value)
+            
+            # Update display
+            self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
+            self.sensor_indicators[1][2].setText(f"{humidity_value}%")
+            self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
+            
+            # Force immediate update
+            for indicator in self.sensor_indicators:
+                indicator[2].repaint()
 
-    def generate_fallback_data(self):
-        """Generate random data when Arduino is not available"""
-        # Temperature: 20-30°C
+    def get_fallback_values(self):
+        """Generate random fallback values for testing"""
+        # Temperature: 20-30°C (will be converted if imperial)
         temp_value = round(20 + (random.random() * 10), 1)
-        self.sensor_indicators[0][2].setText(f"{temp_value}°C")
         
         # Humidity: 40-80%
         humidity_value = round(40 + (random.random() * 40), 1)
-        self.sensor_indicators[1][2].setText(f"{humidity_value}%")
         
         # Air Quality: 0-100 ppm
-        air_quality_value = round(random.random() * 100, 1)
-        self.sensor_indicators[2][2].setText(f"{air_quality_value} ppm")
+        voc_value = round(random.random() * 100, 1)
+        
+        return temp_value, humidity_value, voc_value
+
+    def get_display_temperature(self, celsius_value):
+        """Convert temperature based on units system"""
+        main_window = self.get_main_window()
+        if main_window is not None and main_window.units_system == "imperial":
+            # Convert Celsius to Fahrenheit
+            fahrenheit = (celsius_value * 9/5) + 32
+            return fahrenheit, "°F"
+        return celsius_value, "°C"
+
+    def get_display_temperature_unit(self):
+        """Get the temperature unit based on units system"""
+        main_window = self.get_main_window()
+        if main_window is not None and main_window.units_system == "imperial":
+            return "°F"
+        return "°C"
+
+    def generate_fallback_data(self):
+        """Generate random data when Arduino is not available"""
+        temp_value, humidity_value, voc_value = self.get_fallback_values()
+        
+        self.sensor_indicators[0][2].setText(f"{temp_value}°C")
+        self.sensor_indicators[1][2].setText(f"{humidity_value}%")
+        self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
         
         # Force immediate update of the display
         for indicator in self.sensor_indicators:
