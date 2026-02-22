@@ -1187,6 +1187,10 @@ class SensorPage(BasePage):
         main_window.voc_status = self.voc_toggle.isChecked()
         main_window.voc_threshold = self.voc_spinbox.value()
         main_window.overview_page.update_labels()
+        
+        # Restart the live data timer with the new interval
+        main_window.graph_page.restart_timer_with_new_interval()
+        
         print("Sensor settings applied")
 
 class SettingsOverviewPage(BasePage):
@@ -1694,8 +1698,23 @@ class DataGraphPage(BasePage):
         if main_window is not None and main_window.sensor_status:
             interval_minutes = main_window.sensor_reading_interval
             interval_milliseconds = interval_minutes * 60 * 1000  # Convert to milliseconds
-            if self.live_data_timer is None:
-                self.live_data_timer = self.startTimer(interval_milliseconds)
+            if self.live_data_timer is not None:
+                # Kill existing timer and restart with new interval
+                self.killTimer(self.live_data_timer)
+            self.live_data_timer = self.startTimer(interval_milliseconds)
+            # Initialize with immediate update
+            self.update_live_sensor_data()
+
+    def restart_timer_with_new_interval(self):
+        """Restart the timer with a new interval from settings"""
+        main_window = self.get_main_window()
+        if main_window is not None and main_window.sensor_status:
+            interval_minutes = main_window.sensor_reading_interval
+            interval_milliseconds = interval_minutes * 60 * 1000  # Convert to milliseconds
+            if self.live_data_timer is not None:
+                self.killTimer(self.live_data_timer)
+            self.live_data_timer = self.startTimer(interval_milliseconds)
+            print(f"Timer restarted with new interval: {interval_minutes} minutes")
 
     def timerEvent(self, event):
         """Handle timer events for live data updates"""
@@ -1703,9 +1722,59 @@ class DataGraphPage(BasePage):
 
     def update_live_sensor_data(self):
         """Update the live sensor data display"""
-        # For now, generate random data to simulate live updates
-        # In a real implementation, this would read from the Arduino
-        
+        # Read from Arduino serial port to get real sensor data
+        try:
+            # Find Arduino port
+            port = self.find_arduino_port()
+            if port:
+                # Open serial connection
+                ser = serial.Serial(port, 9600, timeout=1)
+                
+                # Read a line from Arduino
+                line = ser.readline().decode().strip()
+                
+                if line:
+                    # Parse the sensor data line
+                    # Expected format: "SENSOR:temp,humidity,voc,dht"
+                    if line.startswith("SENSOR:"):
+                        parts = line.split(":")[1].split(",")
+                        if len(parts) >= 4:
+                            try:
+                                temp_value = float(parts[0])
+                                humidity_value = float(parts[1])
+                                voc_value = float(parts[2])
+                                dht_value = float(parts[3])
+                                
+                                # Update temperature
+                                self.sensor_indicators[0][2].setText(f"{temp_value}°C")
+                                
+                                # Update humidity
+                                self.sensor_indicators[1][2].setText(f"{humidity_value}%")
+                                
+                                # Update air quality (VOC)
+                                self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
+                                
+                                # Force immediate update of the display
+                                for indicator in self.sensor_indicators:
+                                    indicator[2].repaint()
+                                
+                                print(f"Updated sensor data: Temp={temp_value}°C, Humidity={humidity_value}%, VOC={voc_value} ppm")
+                                
+                            except ValueError as e:
+                                print(f"Error parsing sensor data: {e}")
+                
+                # Close serial connection
+                ser.close()
+            else:
+                # Fallback to random data if no Arduino found
+                self.generate_fallback_data()
+        except Exception as e:
+            print(f"Error reading from Arduino: {e}")
+            # Fallback to random data
+            self.generate_fallback_data()
+
+    def generate_fallback_data(self):
+        """Generate random data when Arduino is not available"""
         # Temperature: 20-30°C
         temp_value = round(20 + (random.random() * 10), 1)
         self.sensor_indicators[0][2].setText(f"{temp_value}°C")
@@ -1717,6 +1786,10 @@ class DataGraphPage(BasePage):
         # Air Quality: 0-100 ppm
         air_quality_value = round(random.random() * 100, 1)
         self.sensor_indicators[2][2].setText(f"{air_quality_value} ppm")
+        
+        # Force immediate update of the display
+        for indicator in self.sensor_indicators:
+            indicator[2].repaint()
 
         # Initialize experiments
         self.load_experiments()
