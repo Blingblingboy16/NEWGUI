@@ -407,14 +407,21 @@ class MainPage(BasePage):
         print(f"Sent to Arduino: {command.strip()}")
 
     def send_water_pump_settings(self, ser, main_window):
-        """Send water pump settings to Arduino"""
-        status = "ON" if main_window.water_pump_status else "OFF"
-        speed = main_window.water_pump_speed
-        flow = main_window.water_pump_flow
-        duration = main_window.water_pump_duration
-        interval = main_window.water_pump_interval
+        """Send water pump settings to Arduino using proper command format"""
+        if not main_window.water_pump_status:
+            # Turn off pump
+            command = "PUMP,OFF\n"
+            ser.write(command.encode())
+            print(f"Sent to Arduino: {command.strip()}")
+            return
+
+        # Use saved pump speed as percentage (0-100%)
+        pump_speed = main_window.water_pump_speed
+        duration = main_window.water_pump_duration  # in seconds
+        interval = main_window.water_pump_interval  # in minutes
         
-        command = f"PUMP,{status},{speed},{flow},{duration},{interval}\n"
+        # Send PUMP command in format: PUMP,SET,Speed%,DurationSec,IntervalMin
+        command = f"PUMP,SET,{pump_speed},{duration},{interval}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
