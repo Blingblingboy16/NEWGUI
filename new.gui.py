@@ -344,8 +344,8 @@ class MainPage(BasePage):
             return
 
         try:
-            # Open serial connection
-            ser = serial.Serial(port, 9600, timeout=1)
+            # Open serial connection (match ESP32 baud rate)
+            ser = serial.Serial(port, 115200, timeout=1)
             time.sleep(2)  # Allow Arduino to reset
 
             # Send LED settings
@@ -377,7 +377,7 @@ class MainPage(BasePage):
             if 'ACM' in port.device or 'USB' in port.device:
                 try:
                     # Try to open the port briefly to test if it's the Arduino
-                    ser = serial.Serial(port.device, 9600, timeout=1)
+                    ser = serial.Serial(port.device, 115200, timeout=1)
                     ser.close()
                     return port.device
                 except:
@@ -1957,8 +1957,8 @@ class DataGraphPage(BasePage):
             temp_value = humidity_value = voc_value = None
             
             if port:
-                # Open serial connection
-                ser = serial.Serial(port, 9600, timeout=1)
+                # Open serial connection (match ESP32 baud rate)
+                ser = serial.Serial(port, 115200, timeout=1)
                 
                 # Read a line from Arduino
                 line = ser.readline().decode().strip()

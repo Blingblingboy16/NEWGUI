@@ -2,7 +2,7 @@ import serial
 import time
 
 class Arduino:
-    def __init__(self, port="/dev/ttyACM0", baud=9600):
+    def __init__(self, port="/dev/ttyACM0", baud=115200):
         self.ser = serial.Serial(port, baud, timeout=1)
         time.sleep(2)
 
