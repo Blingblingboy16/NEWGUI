@@ -1103,61 +1103,7 @@ class SensorPage(BasePage):
 
         self.body.addLayout(interval_layout)
 
-        # DHT Sensor status toggle
-        dht_status_layout = QHBoxLayout()
-        dht_status_layout.setSpacing(15)
-        dht_status_label = QLabel("DHT11 Sensor Status:")
-        dht_status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.dht_toggle = QCheckBox("On/Off")
-        self.dht_toggle.setChecked(True)
-        dht_status_layout.addWidget(dht_status_label)
-        dht_status_layout.addWidget(self.dht_toggle)
-        dht_status_layout.addStretch()
-
-        self.body.addLayout(dht_status_layout)
-
-        # DHT threshold
-        dht_layout = QHBoxLayout()
-        dht_layout.setSpacing(15)
-        self.dht_label = QLabel("DHT11 Threshold (cm):")
-        self.dht_label.setStyleSheet("font-size: 14px;")
-        self.dht_spinbox = QSpinBox()
-        self.dht_spinbox.setMinimum(0)
-        self.dht_spinbox.setMaximum(100)
-        self.dht_spinbox.setValue(10)
-        dht_layout.addWidget(self.dht_label)
-        dht_layout.addWidget(self.dht_spinbox)
-        dht_layout.addStretch()
-
-        self.body.addLayout(dht_layout)
-
-        # VOC Sensor status toggle
-        voc_status_layout = QHBoxLayout()
-        voc_status_layout.setSpacing(15)
-        voc_status_label = QLabel("VOC Sensor Status:")
-        voc_status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.voc_toggle = QCheckBox("On/Off")
-        self.voc_toggle.setChecked(True)
-        voc_status_layout.addWidget(voc_status_label)
-        voc_status_layout.addWidget(self.voc_toggle)
-        voc_status_layout.addStretch()
-
-        self.body.addLayout(voc_status_layout)
-
-        # VOC threshold
-        voc_layout = QHBoxLayout()
-        voc_layout.setSpacing(15)
-        voc_label = QLabel("VOC Threshold (ppm):")
-        voc_label.setStyleSheet("font-size: 14px;")
-        self.voc_spinbox = QSpinBox()
-        self.voc_spinbox.setMinimum(0)
-        self.voc_spinbox.setMaximum(100)
-        self.voc_spinbox.setValue(5)
-        voc_layout.addWidget(voc_label)
-        voc_layout.addWidget(self.voc_spinbox)
-        voc_layout.addStretch()
-
-        self.body.addLayout(voc_layout)
+    # Note: simplified sensor UI — only sensor On/Off and interval (minutes)
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -1179,23 +1125,16 @@ class SensorPage(BasePage):
     def update_units(self):
         main_window = self.get_main_window()
         if main_window is not None:
-            if main_window.units_system == "metric":
-                self.temp_label.setText("Temperature Threshold (°C):")
-                self.dht_label.setText("DHT11 Threshold (cm):")
-            else:
-                self.temp_label.setText("Temperature Threshold (°F):")
-                self.dht_label.setText("DHT11 Threshold (inches):")
+            # No per-sensor unit labels in simplified UI
+            pass
 
     def apply_sensor(self):
         main_window = self.get_main_window()
         if main_window is None:
             return
         main_window.sensor_status = self.sensor_toggle.isChecked()
+        # Only store simple settings: interval in minutes
         main_window.sensor_reading_interval = self.interval_spinbox.value()
-        main_window.dht_status = self.dht_toggle.isChecked()
-        main_window.dht_threshold = self.dht_spinbox.value()
-        main_window.voc_status = self.voc_toggle.isChecked()
-        main_window.voc_threshold = self.voc_spinbox.value()
         main_window.overview_page.update_labels()
         
         # Restart the live data timer with the new interval
@@ -1751,6 +1690,14 @@ class DataGraphPage(BasePage):
         
         sensor_layout.addLayout(tracking_btn_layout)
 
+        # Serial debug log to display raw incoming serial lines (helps debugging)
+        from PyQt6.QtWidgets import QTextEdit
+        self.serial_log = QTextEdit()
+        self.serial_log.setReadOnly(True)
+        self.serial_log.setFixedHeight(140)
+        self.serial_log.setPlaceholderText("Raw serial log (shows incoming MQ_DATA / DHT_DATA lines)...")
+        sensor_layout.addWidget(self.serial_log)
+
         # Tracking status label
         self.tracking_status_label = QLabel("Tracking: Not Started")
         self.tracking_status_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #666666;")
@@ -1780,6 +1727,12 @@ class DataGraphPage(BasePage):
             'humidity': [],
             'voc': []
         }
+        # Keep last-known sensor values so missing fields don't wipe previous readings
+        self.last_temp = None
+        self.last_humidity = None
+        self.last_voc = None
+        # Persistent serial connection (to avoid resetting Arduino on open/close)
+        self.serial_conn = None
         
         self.start_live_data_updates()
 
@@ -1792,6 +1745,27 @@ class DataGraphPage(BasePage):
             if self.live_data_timer is not None:
                 # Kill existing timer and restart with new interval
                 self.killTimer(self.live_data_timer)
+            # Try to open a persistent serial connection so we don't reset the
+            # Arduino by opening/closing the port repeatedly. If opening fails
+            # we still start the timer and use fallback values.
+            try:
+                if self.serial_conn is None:
+                    port = None
+                    if hasattr(main_window, 'find_arduino_port'):
+                        port = main_window.find_arduino_port()
+                    if port:
+                        try:
+                            self.serial_conn = serial.Serial(port, 115200, timeout=0.5)
+                            try:
+                                # Prevent toggling DTR which can reset some boards
+                                self.serial_conn.setDTR(False)
+                            except Exception:
+                                pass
+                        except Exception as e:
+                            print(f"Could not open serial port {port}: {e}")
+            except Exception:
+                pass
+
             self.live_data_timer = self.startTimer(interval_milliseconds)
             # Initialize with immediate update
             self.update_live_sensor_data()
@@ -1801,11 +1775,10 @@ class DataGraphPage(BasePage):
         main_window = self.get_main_window()
         if main_window is not None and main_window.sensor_status:
             interval_minutes = main_window.sensor_reading_interval
-            interval_milliseconds = interval_minutes * 60 * 1000  # Convert to milliseconds
+            interval_milliseconds = max(1000, int(interval_minutes * 60 * 1000))  # Convert to milliseconds
             if self.live_data_timer is not None:
                 self.killTimer(self.live_data_timer)
             self.live_data_timer = self.startTimer(interval_milliseconds)
-            print(f"Timer restarted with new interval: {interval_minutes} minutes")
 
     def start_sensor_tracking(self):
         """Start tracking sensor data with time stamps"""
@@ -1822,12 +1795,14 @@ class DataGraphPage(BasePage):
         # Ensure timer is started/restarted
         main_window = self.get_main_window()
         if main_window is not None:
+            # When actively tracking, follow the user-configured sensor reading
+            # interval so the GUI samples at the same cadence the user expects.
             interval_minutes = main_window.sensor_reading_interval
-            interval_milliseconds = interval_minutes * 60 * 1000
+            sample_ms = max(1000, int(interval_minutes * 60 * 1000))
             if self.live_data_timer is not None:
                 self.killTimer(self.live_data_timer)
-            self.live_data_timer = self.startTimer(interval_milliseconds)
-            print(f"Timer started with interval: {interval_minutes} minutes ({interval_milliseconds}ms)")
+            self.live_data_timer = self.startTimer(sample_ms)
+            print(f"Tracking timer started with interval: {sample_ms} ms ({interval_minutes} min)")
         
         # Update UI
         self.start_tracking_btn.setEnabled(False)
@@ -1853,6 +1828,12 @@ class DataGraphPage(BasePage):
         # Update graphs with final data
         self.update_sensor_graphs()
         
+        # Restore the normal live update interval from settings
+        try:
+            self.restart_timer_with_new_interval()
+        except Exception:
+            pass
+
         print(f"Sensor tracking stopped. Collected {len(self.tracking_data['time'])} data points")
 
     def clear_tracking_data(self):
@@ -1949,57 +1930,125 @@ class DataGraphPage(BasePage):
         self.update_live_sensor_data()
 
     def update_live_sensor_data(self):
-        """Update the live sensor data display"""
-        # Read from Arduino serial port to get real sensor data
+        """Update the live sensor data display.
+
+        This function now understands the ESP32/Arduino message formats emitted by
+        the device: "MQ_DATA,raw,ppm" and "DHT_DATA,temp,humidity". It reads a
+        small batch of lines from the serial buffer and updates the UI using
+        the most recent values for each sensor. Missing fields keep their last
+        known values to avoid flicker when only one sensor reports.
+        """
         try:
-            # Find Arduino port
-            port = self.find_arduino_port()
-            temp_value = humidity_value = voc_value = None
-            
-            if port:
-                # Open serial connection (match ESP32 baud rate)
-                ser = serial.Serial(port, 115200, timeout=1)
-                
-                # Read a line from Arduino
-                line = ser.readline().decode().strip()
-                
-                if line:
-                    # Parse the sensor data line
-                    # Expected format: "SENSOR:temp,humidity,voc,dht"
-                    if line.startswith("SENSOR:"):
-                        parts = line.split(":")[1].split(",")
-                        if len(parts) >= 4:
-                            try:
-                                temp_value = float(parts[0])
-                                humidity_value = float(parts[1])
-                                voc_value = float(parts[2])
-                                dht_value = float(parts[3])
-                                
-                            except ValueError as e:
-                                print(f"Error parsing sensor data: {e}")
-                
-                # Close serial connection
-                ser.close()
-            
-            # If we didn't get data from Arduino, use fallback
+            # Find Arduino port via the main window helper
+            main_window = self.get_main_window()
+            port = None
+            if main_window is not None and hasattr(main_window, 'find_arduino_port'):
+                port = main_window.find_arduino_port()
+
+            # Temporary holders
+            temp_value = None
+            humidity_value = None
+            voc_value = None
+
+            # Use persistent serial connection if available; otherwise try to open one
+            if self.serial_conn is None:
+                if port:
+                    try:
+                        self.serial_conn = serial.Serial(port, 115200, timeout=0.5)
+                        try:
+                            self.serial_conn.setDTR(False)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        print(f"Could not open serial port {port}: {e}")
+
+            if self.serial_conn:
+                # Read up to a few lines from the buffer to pick up the latest values
+                try:
+                    for _ in range(10):
+                        raw = self.serial_conn.readline()
+                        if not raw:
+                            break
+                        try:
+                            line = raw.decode().strip()
+                        except Exception:
+                            continue
+
+                        if not line:
+                            continue
+
+                        # Append raw line to serial debug log (keep last 200 lines)
+                        try:
+                            if hasattr(self, 'serial_log') and self.serial_log is not None:
+                                self.serial_log.append(line)
+                                # Trim log: keep last ~200 lines
+                                contents = self.serial_log.toPlainText().splitlines()
+                                if len(contents) > 200:
+                                    # keep last 200
+                                    self.serial_log.setPlainText('\n'.join(contents[-200:]))
+                        except Exception:
+                            pass
+
+                        # Parse MQ sensor line: MQ_DATA,rawADC,ppm
+                        if line.startswith("MQ_DATA"):
+                            parts = line.split(",")
+                            if len(parts) >= 3:
+                                try:
+                                    ppm = float(parts[2])
+                                    voc_value = ppm
+                                except ValueError:
+                                    pass
+
+                        # Parse DHT sensor line: DHT_DATA,temp,humidity
+                        elif line.startswith("DHT_DATA"):
+                            parts = line.split(",")
+                            if len(parts) >= 3:
+                                try:
+                                    temp_value = float(parts[1])
+                                    humidity_value = float(parts[2])
+                                except ValueError:
+                                    pass
+                except Exception as e:
+                    print(f"Error reading from persistent serial connection: {e}")
+
+            # Fill missing values with last known or fallback
             if temp_value is None:
-                temp_value, humidity_value, voc_value = self.get_fallback_values()
-            
-            # Get display temperature with correct unit
+                temp_value = self.last_temp
+            if humidity_value is None:
+                humidity_value = self.last_humidity
+            if voc_value is None:
+                voc_value = self.last_voc
+
+            # If still missing, use fallback (random) values
+            if temp_value is None or humidity_value is None or voc_value is None:
+                ftemp, fhum, fvoc = self.get_fallback_values()
+                if temp_value is None:
+                    temp_value = ftemp
+                if humidity_value is None:
+                    humidity_value = fhum
+                if voc_value is None:
+                    voc_value = fvoc
+
+            # Save last-known values
+            self.last_temp = temp_value
+            self.last_humidity = humidity_value
+            self.last_voc = voc_value
+
+            # Convert temperature for display
             display_temp, temp_unit = self.get_display_temperature(temp_value)
-                
-            # Update display
+
+            # Update UI indicators
             self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
-            self.sensor_indicators[1][2].setText(f"{humidity_value}%")
-            self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
-            
-            # Update the indicator label for temperature
+            self.sensor_indicators[1][2].setText(f"{round(humidity_value, 2)}%")
+            self.sensor_indicators[2][2].setText(f"{round(voc_value, 2)} ppm")
+
+            # Ensure label text remains consistent
             self.sensor_indicators[0][1].setText("Temperature:")
-            
-            # Force immediate update of the display
+
+            # Force repaint
             for indicator in self.sensor_indicators:
                 indicator[2].repaint()
-            
+
             # Store data if tracking is active (always store in Celsius for consistency)
             if self.tracking_active and self.tracking_start_time is not None:
                 elapsed_minutes = (time.time() - self.tracking_start_time) / 60.0
@@ -2007,24 +2056,22 @@ class DataGraphPage(BasePage):
                 self.tracking_data['temperature'].append(temp_value)  # Store in Celsius
                 self.tracking_data['humidity'].append(humidity_value)
                 self.tracking_data['voc'].append(voc_value)
-                
                 # Update graphs in real-time
                 self.update_sensor_graphs()
-                
+
         except Exception as e:
             print(f"Error reading from Arduino: {e}")
-            # Fallback to random data
-            temp_value, humidity_value, voc_value = self.get_fallback_values()
-            
-            # Get display temperature with correct unit
+            # On error, fall back to previous or random values and update UI
+            temp_value = self.last_temp
+            humidity_value = self.last_humidity
+            voc_value = self.last_voc
+            if temp_value is None or humidity_value is None or voc_value is None:
+                temp_value, humidity_value, voc_value = self.get_fallback_values()
+
             display_temp, temp_unit = self.get_display_temperature(temp_value)
-            
-            # Update display
             self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
-            self.sensor_indicators[1][2].setText(f"{humidity_value}%")
-            self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
-            
-            # Force immediate update
+            self.sensor_indicators[1][2].setText(f"{round(humidity_value,2)}%")
+            self.sensor_indicators[2][2].setText(f"{round(voc_value,2)} ppm")
             for indicator in self.sensor_indicators:
                 indicator[2].repaint()
 
@@ -2056,6 +2103,18 @@ class DataGraphPage(BasePage):
         if main_window is not None and main_window.units_system == "imperial":
             return "°F"
         return "°C"
+
+    def close_serial_connection(self):
+        """Close persistent serial connection if open."""
+        try:
+            if hasattr(self, 'serial_conn') and self.serial_conn:
+                try:
+                    self.serial_conn.close()
+                except Exception:
+                    pass
+                self.serial_conn = None
+        except Exception:
+            pass
 
     def generate_fallback_data(self):
         """Generate random data when Arduino is not available"""
@@ -2546,6 +2605,18 @@ class MainWindow(QMainWindow):
             self.scroll_area.verticalScrollBar().value() - event.angleDelta().y()
         )
         event.accept()
+
+    def closeEvent(self, event):
+        # Ensure serial connection used by graph page is closed on exit
+        try:
+            if hasattr(self, 'graph_page') and self.graph_page is not None:
+                try:
+                    self.graph_page.close_serial_connection()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        super().closeEvent(event)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
