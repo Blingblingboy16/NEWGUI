@@ -9,9 +9,9 @@ import time
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QVBoxLayout,
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
-    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QInputDialog, QTabWidget, QTimeEdit
+    QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QInputDialog, QTabWidget, QTimeEdit, QStatusBar
 )
-from PyQt6.QtCore import Qt, QDate, QTime
+from PyQt6.QtCore import Qt, QDate, QTime, QTimer
 from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -81,23 +81,24 @@ class MainPage(BasePage):
         # Status bar at the top
         status_layout = QHBoxLayout()
         status_layout.setSpacing(20)
-        
-        # Connection status indicator
+
+        # Connection status indicator (dot)
         self.connection_status = QLabel("●")
-        self.connection_status.setStyleSheet("font-size: 24px; color: #27ae60; font-weight: bold;")
+        # default to red (no board) until poll updates
+        self.connection_status.setStyleSheet("font-size: 24px; color: #c0392b; font-weight: bold;")
         status_layout.addWidget(self.connection_status)
-        
-        # Status text
-        status_text = QLabel("Connected to NanoLab")
-        status_text.setStyleSheet("font-size: 16px; font-weight: 600; color: #2f4f2d;")
-        status_layout.addWidget(status_text)
-        
+
+        # Status text (exposed so MainWindow can update it)
+        self.connection_text = QLabel("Board not detected")
+        self.connection_text.setStyleSheet("font-size: 16px; font-weight: 600; color: #2f4f2d;")
+        status_layout.addWidget(self.connection_text)
+
         # Last update
         last_update = QLabel("Last update: Just now")
         last_update.setStyleSheet("font-size: 14px; color: #666666;")
         status_layout.addWidget(last_update)
         status_layout.addStretch()
-        
+
         # Connection dropdown
         connection_layout = QHBoxLayout()
         connection_layout.setSpacing(10)
@@ -111,6 +112,13 @@ class MainPage(BasePage):
         connection_layout.addWidget(self.connection_combo)
         status_layout.addLayout(connection_layout)
 
+        # Rescan button to manually trigger port poll
+        self.rescan_btn = QPushButton("Rescan")
+        self.rescan_btn.setMinimumHeight(36)
+        self.rescan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.rescan_btn.clicked.connect(lambda: (self.get_main_window() and self.get_main_window().poll_serial_ports()))
+        connection_layout.addWidget(self.rescan_btn)
+
         main_container.addLayout(status_layout)
 
         # Two-column layout for main content
@@ -119,14 +127,7 @@ class MainPage(BasePage):
 
         # Left Column - Review Data Section
         data_widget = QWidget()
-        data_widget.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                border-radius: 12px;
-                border: 1px solid #e0e0e0;
-                padding: 20px;
-            }
-        """)
+        data_widget.setProperty("isCard", True)
         data_layout = QVBoxLayout(data_widget)
         data_layout.setSpacing(20)
 
@@ -173,14 +174,7 @@ class MainPage(BasePage):
 
         # Right Column - Adjust Settings Section
         settings_widget = QWidget()
-        settings_widget.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                border-radius: 12px;
-                border: 1px solid #e0e0e0;
-                padding: 20px;
-            }
-        """)
+        settings_widget.setProperty("isCard", True)
         settings_layout = QVBoxLayout(settings_widget)
         settings_layout.setSpacing(20)
 
@@ -212,7 +206,7 @@ class MainPage(BasePage):
             ("Water Pump", "water"),
             ("LED Settings", "led"),
             ("Fan Settings", "fan"),
-            ("Camera", "camera"),
+            ("DC Motor", "dc"),
             ("Sensor", "sensor"),
             ("Schedule", "schedule"),
         ]
@@ -357,6 +351,10 @@ class MainPage(BasePage):
             # Send fan settings
             self.send_fan_settings(ser, main_window)
 
+            # Send DC motor settings
+            if hasattr(self, 'send_motor_settings'):
+                self.send_motor_settings(ser, main_window)
+
             # Send sensor settings
             self.send_sensor_settings(ser, main_window)
 
@@ -441,6 +439,18 @@ class MainPage(BasePage):
         
         # Send FAN command in format: FAN,ON,speed,runSec,intervalMin
         command = f"FAN,ON,{fan_speed},{duration},{interval}\n"
+        ser.write(command.encode())
+        print(f"Sent to Arduino: {command.strip()}")
+
+    def send_motor_settings(self, ser, main_window):
+        """Send DC motor settings to Arduino using MOTOR_CFG command format"""
+        # MOTOR_CFG,status(0/1),speed(0-255),onSec,offMin
+        status = 1 if getattr(main_window, 'dc_enabled', False) else 0
+        speed = getattr(main_window, 'dc_speed', 0)
+        onSec = getattr(main_window, 'dc_on_duration', 0)
+        offMin = getattr(main_window, 'dc_off_interval', 0)
+
+        command = f"MOTOR_CFG,{status},{speed},{onSec},{offMin}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
@@ -605,6 +615,9 @@ class WaterPumpPage(BasePage):
         main_window.water_pump_interval = self.run_interval_spinbox.value()
         main_window.overview_page.update_labels()
         print("Water pump settings applied")
+        # Friendly UX: notify user
+        if main_window is not None and hasattr(main_window, 'show_temporary_message'):
+            main_window.show_temporary_message("settings saved!", 2500)
 
 class LEDSettingsPage(BasePage):
     def __init__(self, switch):
@@ -837,6 +850,12 @@ class LEDSettingsPage(BasePage):
             self.send_led_to_esp32(main_window)
 
         print("LED settings applied")
+        # Always show a friendly confirmation regardless of send outcome
+        try:
+            if main_window is not None and hasattr(main_window, 'show_temporary_message'):
+                main_window.show_temporary_message("settings saved!", 2500)
+        except Exception:
+            print("settings saved!")
 
     def send_led_to_esp32(self, main_window):
         # Find ESP32 port
@@ -966,56 +985,44 @@ class FanSettingsPage(BasePage):
         main_window.fan_interval = self.run_interval_spinbox.value()
         main_window.overview_page.update_labels()
         print("Fan settings applied")
+        if main_window is not None and hasattr(main_window, 'show_temporary_message'):
+            main_window.show_temporary_message("settings saved!", 2500)
 
-class CameraPage(BasePage):
+class DCMotorPage(BasePage):
     def __init__(self, switch):
-        super().__init__("Camera Settings")
+        super().__init__("DC Motor Settings")
 
-        # Camera status toggle
+        # DC Motor status toggle
         status_layout = QHBoxLayout()
         status_layout.setSpacing(15)
-        status_label = QLabel("Camera Status:")
+        status_label = QLabel("DC Motor Status:")
         status_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        self.camera_toggle = QCheckBox("On/Off")
-        self.camera_toggle.setChecked(True)
+        self.dc_toggle = QCheckBox("On/Off")
+        self.dc_toggle.setChecked(True)
         status_layout.addWidget(status_label)
-        status_layout.addWidget(self.camera_toggle)
+        status_layout.addWidget(self.dc_toggle)
         status_layout.addStretch()
 
         self.body.addLayout(status_layout)
 
-        # Resolution dropdown
-        res_layout = QHBoxLayout()
-        res_layout.setSpacing(15)
-        res_label = QLabel("Resolution:")
-        res_label.setStyleSheet("font-size: 14px;")
-        self.resolution_combo = QComboBox()
-        self.resolution_combo.addItems(["640x480", "1280x720", "1920x1080", "2560x1440"])
-        self.resolution_combo.setCurrentText("1280x720")
-        res_layout.addWidget(res_label)
-        res_layout.addWidget(self.resolution_combo)
-        res_layout.addStretch()
+        # Power percent slider
+        power_layout = QVBoxLayout()
+        power_layout.setSpacing(10)
+        power_label = QLabel("Power: 70%")
+        power_label.setStyleSheet("font-size: 14px;")
+        self.power_slider = QSlider(Qt.Orientation.Horizontal)
+        self.power_slider.setMinimum(0)
+        self.power_slider.setMaximum(100)
+        self.power_slider.setValue(70)
+        self.power_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.power_slider.setTickInterval(10)
+        self.power_slider.valueChanged.connect(lambda v: power_label.setText(f"Power: {v}%"))
 
-        self.body.addLayout(res_layout)
+        power_layout.addWidget(power_label)
+        power_layout.addWidget(self.power_slider)
+        self.body.addLayout(power_layout)
 
-        # Exposure slider
-        exposure_layout = QVBoxLayout()
-        exposure_layout.setSpacing(10)
-        exposure_label = QLabel("Exposure: 50")
-        exposure_label.setStyleSheet("font-size: 14px;")
-        self.exposure_slider = QSlider(Qt.Orientation.Horizontal)
-        self.exposure_slider.setMinimum(0)
-        self.exposure_slider.setMaximum(100)
-        self.exposure_slider.setValue(50)
-        self.exposure_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.exposure_slider.setTickInterval(10)
-        self.exposure_slider.valueChanged.connect(lambda v: exposure_label.setText(f"Exposure: {v}"))
-
-        exposure_layout.addWidget(exposure_label)
-        exposure_layout.addWidget(self.exposure_slider)
-        self.body.addLayout(exposure_layout)
-
-        # Duration settings
+        # Duration settings (on seconds)
         duration_layout = QHBoxLayout()
         duration_layout.setSpacing(15)
         duration_label = QLabel("Run Duration (seconds):")
@@ -1023,22 +1030,22 @@ class CameraPage(BasePage):
         self.duration_spinbox = QSpinBox()
         self.duration_spinbox.setMinimum(1)
         self.duration_spinbox.setMaximum(3600)
-        self.duration_spinbox.setValue(300)
+        self.duration_spinbox.setValue(3600)
         duration_layout.addWidget(duration_label)
         duration_layout.addWidget(self.duration_spinbox)
         duration_layout.addStretch()
 
         self.body.addLayout(duration_layout)
 
-        # Interval settings
+        # Interval settings (off minutes)
         interval_layout = QHBoxLayout()
         interval_layout.setSpacing(15)
-        interval_label = QLabel("Run Interval (minutes):")
+        interval_label = QLabel("Off Interval (minutes):")
         interval_label.setStyleSheet("font-size: 14px;")
         self.run_interval_spinbox = QSpinBox()
-        self.run_interval_spinbox.setMinimum(1)
+        self.run_interval_spinbox.setMinimum(0)
         self.run_interval_spinbox.setMaximum(1440)
-        self.run_interval_spinbox.setValue(60)
+        self.run_interval_spinbox.setValue(0)
         interval_layout.addWidget(interval_label)
         interval_layout.addWidget(self.run_interval_spinbox)
         interval_layout.addStretch()
@@ -1049,7 +1056,7 @@ class CameraPage(BasePage):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(20)
         apply_btn = QPushButton("Apply Settings")
-        apply_btn.clicked.connect(self.apply_camera)
+        apply_btn.clicked.connect(self.apply_dc)
         apply_btn.setStyleSheet("font-size: 14px; padding: 10px;")
         back_btn = QPushButton("Back to Main")
         style_button(back_btn)
@@ -1059,17 +1066,19 @@ class CameraPage(BasePage):
         btn_layout.addWidget(back_btn)
         self.body.addLayout(btn_layout)
 
-    def apply_camera(self):
+    def apply_dc(self):
         main_window = self.get_main_window()
         if main_window is None:
             return
-        main_window.camera_status = self.camera_toggle.isChecked()
-        main_window.camera_resolution = self.resolution_combo.currentText()
-        main_window.camera_exposure = self.exposure_slider.value()
-        main_window.camera_duration = self.duration_spinbox.value()
-        main_window.camera_interval = self.run_interval_spinbox.value()
+        main_window.dc_enabled = self.dc_toggle.isChecked()
+        # Map 0-100% to 0-255 for Arduino command
+        main_window.dc_speed = int((self.power_slider.value() / 100.0) * 255)
+        main_window.dc_on_duration = self.duration_spinbox.value()
+        main_window.dc_off_interval = self.run_interval_spinbox.value()
         main_window.overview_page.update_labels()
-        print("Camera settings applied")
+        print("DC motor settings applied")
+        if main_window is not None and hasattr(main_window, 'show_temporary_message'):
+            main_window.show_temporary_message("settings saved!", 2500)
 
 class SensorPage(BasePage):
     def __init__(self, switch):
@@ -1103,7 +1112,11 @@ class SensorPage(BasePage):
 
         self.body.addLayout(interval_layout)
 
+<<<<<<< HEAD
     # Note: simplified sensor UI — only sensor On/Off and interval (minutes)
+=======
+    # (Other detailed sensor controls removed — page simplified)
+>>>>>>> e2b7701 (updates)
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -1132,6 +1145,7 @@ class SensorPage(BasePage):
         main_window = self.get_main_window()
         if main_window is None:
             return
+        # Only store the simplified sensor settings
         main_window.sensor_status = self.sensor_toggle.isChecked()
         # Only store simple settings: interval in minutes
         main_window.sensor_reading_interval = self.interval_spinbox.value()
@@ -1141,6 +1155,8 @@ class SensorPage(BasePage):
         main_window.graph_page.restart_timer_with_new_interval()
         
         print("Sensor settings applied")
+        if main_window is not None and hasattr(main_window, 'show_temporary_message'):
+            main_window.show_temporary_message("settings saved!", 2500)
 
 class SettingsOverviewPage(BasePage):
     def __init__(self, switch, main_window):
@@ -1198,77 +1214,8 @@ class SettingsOverviewPage(BasePage):
         water_group.setLayout(water_layout)
         overview_layout.addWidget(water_group)
 
-        # LED Settings Overview
-        led_group = QGroupBox("LED Settings")
-        led_group.setStyleSheet("font-size: 16px; font-weight: bold;")
-        led_layout = QVBoxLayout()
-        led_layout.setSpacing(10)
-        led_layout.setContentsMargins(15, 15, 15, 15)
-
-        self.led_labels = []
-        led_settings_texts = [
-            "Status: On",
-            "Brightness: 70%",
-            "Color: #FFFFFF",
-            "Duration: 300 seconds",
-            "Interval: 60 minutes"
-        ]
-
-        for text in led_settings_texts:
-            setting_label = QLabel(text)
-            setting_label.setStyleSheet("font-size: 14px;")
-            led_layout.addWidget(setting_label)
-            self.led_labels.append(setting_label)
-
-        # Center the edit button
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        edit_led_btn = QPushButton("Edit LED Settings")
-        edit_led_btn.clicked.connect(lambda: switch("led"))
-        edit_led_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
-        btn_layout.addWidget(edit_led_btn)
-        btn_layout.addStretch()
-        led_layout.addLayout(btn_layout)
-
-        led_group.setLayout(led_layout)
-        overview_layout.addWidget(led_group)
-
-        # Fan Settings Overview
-        fan_group = QGroupBox("Fan Settings")
-        fan_group.setStyleSheet("font-size: 16px; font-weight: bold;")
-        fan_layout = QVBoxLayout()
-        fan_layout.setSpacing(10)
-        fan_layout.setContentsMargins(15, 15, 15, 15)
-
-        self.fan_labels = []
-        fan_settings_texts = [
-            "Status: On",
-            "Intensity: 75%",
-            "Duration: 300 seconds",
-            "Interval: 60 minutes"
-        ]
-
-        for text in fan_settings_texts:
-            setting_label = QLabel(text)
-            setting_label.setStyleSheet("font-size: 14px;")
-            fan_layout.addWidget(setting_label)
-            self.fan_labels.append(setting_label)
-
-        # Center the edit button
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        edit_fan_btn = QPushButton("Edit Fan Settings")
-        edit_fan_btn.clicked.connect(lambda: switch("fan"))
-        edit_fan_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
-        btn_layout.addWidget(edit_fan_btn)
-        btn_layout.addStretch()
-        fan_layout.addLayout(btn_layout)
-
-        fan_group.setLayout(fan_layout)
-        overview_layout.addWidget(fan_group)
-
-        # Camera Settings Overview
-        camera_group = QGroupBox("Camera")
+        # DC Motor Settings Overview
+        camera_group = QGroupBox("DC Motor")
         camera_group.setStyleSheet("font-size: 16px; font-weight: bold;")
         camera_layout = QVBoxLayout()
         camera_layout.setSpacing(10)
@@ -1277,10 +1224,10 @@ class SettingsOverviewPage(BasePage):
         self.camera_labels = []
         camera_settings_texts = [
             "Status: On",
-            "Resolution: 1280x720",
-            "Exposure: 50",
-            "Duration: 300 seconds",
-            "Interval: 60 minutes"
+            "Power: 70%",
+            "Run Duration: 3600 seconds",
+            "Off Interval: 0 minutes",
+            "Raw Speed: 180"
         ]
 
         for text in camera_settings_texts:
@@ -1292,8 +1239,8 @@ class SettingsOverviewPage(BasePage):
         # Center the edit button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        edit_camera_btn = QPushButton("Edit Camera Settings")
-        edit_camera_btn.clicked.connect(lambda: switch("camera"))
+        edit_camera_btn = QPushButton("Edit DC Motor Settings")
+        edit_camera_btn.clicked.connect(lambda: switch("dc"))
         edit_camera_btn.setStyleSheet("font-size: 14px; padding: 10px 20px; background-color: #6bb37a; color: white; border: none; border-radius: 6px;")
         btn_layout.addWidget(edit_camera_btn)
         btn_layout.addStretch()
@@ -1313,10 +1260,13 @@ class SettingsOverviewPage(BasePage):
         sensor_settings_texts = [
             "Status: On",
             "Reading Interval: 5 minutes",
+<<<<<<< HEAD
             "DHT11 Status: On",
             "DHT11 Threshold: 10 cm",
             "VOC Status: On",
             "VOC Threshold: 5 ppm"
+=======
+>>>>>>> e2b7701 (updates)
         ]
 
         for text in sensor_settings_texts:
@@ -1419,11 +1369,11 @@ class SettingsOverviewPage(BasePage):
         self.main_window.fan_duration = 300
         self.main_window.fan_interval = 60
 
-        self.main_window.camera_status = True
-        self.main_window.camera_resolution = "1280x720"
-        self.main_window.camera_exposure = 50
-        self.main_window.camera_duration = 300
-        self.main_window.camera_interval = 60
+        # DC Motor defaults
+        self.main_window.dc_enabled = True
+        self.main_window.dc_speed = 180  # 0-255
+        self.main_window.dc_on_duration = 3600
+        self.main_window.dc_off_interval = 0
 
         self.main_window.sensor_status = True
         self.main_window.sensor_reading_interval = 5
@@ -1470,12 +1420,16 @@ class SettingsOverviewPage(BasePage):
         self.fan_labels[2].setText(f"Duration: {self.main_window.fan_duration} seconds")
         self.fan_labels[3].setText(f"Interval: {self.main_window.fan_interval} minutes")
 
-        # Update camera labels
-        self.camera_labels[0].setText(f"Status: {'On' if self.main_window.camera_status else 'Off'}")
-        self.camera_labels[1].setText(f"Resolution: {self.main_window.camera_resolution}")
-        self.camera_labels[2].setText(f"Exposure: {self.main_window.camera_exposure}")
-        self.camera_labels[3].setText(f"Duration: {self.main_window.camera_duration} seconds")
-        self.camera_labels[4].setText(f"Interval: {self.main_window.camera_interval} minutes")
+        # Update DC motor labels
+        self.camera_labels[0].setText(f"Status: {'On' if self.main_window.dc_enabled else 'Off'}")
+        # Show speed as percent
+        speed_pct = int((self.main_window.dc_speed / 255.0) * 100)
+        self.camera_labels[1].setText(f"Power: {speed_pct}%")
+        self.camera_labels[2].setText(f"Run Duration: {self.main_window.dc_on_duration} seconds")
+        self.camera_labels[3].setText(f"Off Interval: {self.main_window.dc_off_interval} minutes")
+        # Ensure the fifth label (if present) is cleared or used for raw speed
+        if len(self.camera_labels) > 4:
+            self.camera_labels[4].setText(f"Raw Speed: {self.main_window.dc_speed}")
 
         # Update sensor labels
         self.sensor_labels[0].setText(f"Status: {'On' if self.main_window.sensor_status else 'Off'}")
@@ -2433,6 +2387,8 @@ class SchedulePage(BasePage):
         
         main_window.overview_page.update_labels()
         print("Schedule settings applied")
+        if main_window is not None and hasattr(main_window, 'show_temporary_message'):
+            main_window.show_temporary_message("settings saved!", 2500)
 
     def get_main_window(self):
         # Navigate up to MainWindow by traversing parents until finding one with units_system
@@ -2474,11 +2430,11 @@ class MainWindow(QMainWindow):
         self.fan_duration = 300
         self.fan_interval = 60
 
-        self.camera_status = True
-        self.camera_resolution = "1280x720"
-        self.camera_exposure = 50
-        self.camera_duration = 300
-        self.camera_interval = 60
+        # DC motor defaults
+        self.dc_enabled = True
+        self.dc_speed = 180
+        self.dc_on_duration = 3600
+        self.dc_off_interval = 0
 
         self.sensor_status = True
         self.sensor_reading_interval = 5
@@ -2501,8 +2457,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.led_page)
         self.fan_page = FanSettingsPage(self.switch_page)
         self.stack.addWidget(self.fan_page)
-        self.camera_page = CameraPage(self.switch_page)
-        self.stack.addWidget(self.camera_page)
+        self.dc_page = DCMotorPage(self.switch_page)
+        self.stack.addWidget(self.dc_page)
         self.sensor_page = SensorPage(self.switch_page)
         self.stack.addWidget(self.sensor_page)
         self.graph_page = DataGraphPage(self.switch_page)
@@ -2519,17 +2475,74 @@ class MainWindow(QMainWindow):
         self.scroll_area.setWidgetResizable(True)
         self.setCentralWidget(self.scroll_area)
 
-        # Global stylesheet
+        # Global stylesheet — cleaner, modern look
         self.setStyleSheet(f"""
-            QMainWindow {{ background-color: {LIGHT_BG}; }}
-            QLabel {{ font-size: 16px; color: {TEXT_LIGHT}; }}
-            #titleLabel {{ font-size: 28px; font-weight: bold; color: {GREEN_DARK}; }}
-            QPushButton {{ background-color: {GREEN}; color: {TEXT_LIGHT}; border: none; border-radius: 8px; font-size: 16px; }}
-            QPushButton:hover {{ background-color: {GREEN_DARK}; }}
-            QComboBox {{ background-color: white; border: 1px solid {GREEN}; border-radius: 4px; padding: 8px; }}
-            QGroupBox {{ font-weight: bold; border: 2px solid {GREEN_DARK}; border-radius: 8px; margin-top: 1ex; }}
-            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 10px 0 10px; }}
+            /* Base */
+            QMainWindow {{ background-color: {LIGHT_BG}; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }}
+            QWidget {{ color: {TEXT_LIGHT}; }}
+            QLabel {{ font-size: 15px; color: #222222; }}
+            #titleLabel {{ font-size: 26px; font-weight: 700; color: {GREEN_DARK}; margin-bottom: 8px; }}
+
+            /* Buttons */
+            QPushButton {{
+                background-color: {GREEN};
+                color: #ffffff;
+                border: 0;
+                border-radius: 10px;
+                padding: 10px 16px;
+                font-size: 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{ background-color: #7fcf87; }}
+            QPushButton:pressed {{ background-color: #6bb37a; }}
+
+            /* Inputs */
+            QComboBox, QSpinBox, QLineEdit, QDateEdit, QTimeEdit {{
+                background-color: #ffffff;
+                border: 1px solid #d6d6d6;
+                border-radius: 6px;
+                padding: 6px;
+            }}
+
+            /* Cards */
+            QWidget[isCard="true"] {{
+                background-color: #ffffff;
+                border-radius: 12px;
+                border: 1px solid #e8e8e8;
+            }}
+
+            /* Groups */
+            QGroupBox {{ font-weight: 700; border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 8px; padding-top: 12px; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; }}
         """)
+
+        # Start a timer to poll serial ports and update board status
+        self._port_poll_timer = QTimer(self)
+        self._port_poll_timer.setInterval(2000)  # 2 seconds
+        self._port_poll_timer.timeout.connect(self.poll_serial_ports)
+        self._port_poll_timer.start()
+
+        # Run an initial poll
+        self.poll_serial_ports()
+
+        # Ensure a visible status bar for user messages
+        self._status = QStatusBar(self)
+        self.setStatusBar(self._status)
+
+        # Persistent in-UI flash label for reliable visibility on Linux
+        self._flash_label = QLabel("", self)
+        self._flash_label.setObjectName('flashLabel')
+        self._flash_label.setStyleSheet(f"""
+            QLabel#flashLabel {{
+                background-color: {GREEN_DARK};
+                color: white;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-weight: 700;
+            }}
+        """)
+        self._flash_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._flash_label.hide()
 
     def switch_page(self, page_name):
         # Map page names to indices
@@ -2538,7 +2551,7 @@ class MainWindow(QMainWindow):
             "water": 1,
             "led": 2,
             "fan": 3,
-            "camera": 4,
+            "dc": 4,
             "sensor": 5,
             "graph": 6,
             "schedule": 7,
@@ -2557,6 +2570,36 @@ class MainWindow(QMainWindow):
         if page_name == "overview":
             self.overview_page.update_labels()
 
+    def poll_serial_ports(self):
+        """Check attached serial ports and update the main page's connection indicator.
+
+        Strategy: look for ports whose device path contains common patterns like 'ACM' or 'USB'.
+        If a USB port is present, mark board as detected. This keeps the check non-blocking.
+        """
+        try:
+            ports = serial.tools.list_ports.comports()
+            found = None
+            for p in ports:
+                dev = p.device or ''
+                if 'ACM' in dev or 'USB' in dev or 'ttyUSB' in dev:
+                    found = dev
+                    break
+
+            if found:
+                # Update UI to show board detected (green)
+                if hasattr(self, 'main_page'):
+                    self.main_page.connection_status.setStyleSheet("font-size: 24px; color: #27ae60; font-weight: bold;")
+                    self.main_page.connection_text.setText(f"Board: {found}")
+            else:
+                if hasattr(self, 'main_page'):
+                    self.main_page.connection_status.setStyleSheet("font-size: 24px; color: #c0392b; font-weight: bold;")
+                    self.main_page.connection_text.setText("Board not detected")
+        except Exception:
+            # On error, don't raise — just mark not detected
+            if hasattr(self, 'main_page'):
+                self.main_page.connection_status.setStyleSheet("font-size: 24px; color: #c0392b; font-weight: bold;")
+                self.main_page.connection_text.setText("Board not detected")
+
     def go_back(self):
         if self.current_history_index > 0:
             self.current_history_index -= 1
@@ -2572,6 +2615,35 @@ class MainWindow(QMainWindow):
             self.update_navigation_buttons()
             if self.stack.currentWidget() == self.overview_page:
                 self.overview_page.update_labels()
+
+    def show_temporary_message(self, msg: str, ms: int = 3000):
+        """Show a brief message in the window's status bar."""
+        # Always attempt to show in the status bar
+        try:
+            if hasattr(self, '_status') and self._status is not None:
+                self._status.showMessage(msg, ms)
+        except Exception:
+            # fallback to printing
+            print(msg)
+
+        # Additionally, create a floating, non-modal label overlay so the message
+        # is visible regardless of status bar visibility or stylesheet.
+        # Also show a persistent in-UI flash label so it is visible on all platforms (esp. Ubuntu)
+        try:
+            if hasattr(self, '_flash_label') and self._flash_label is not None:
+                self._flash_label.setText(msg)
+                self._flash_label.adjustSize()
+                # Position bottom-center within the main window
+                x = int((self.width() - self._flash_label.width()) / 2)
+                y = self.height() - self._flash_label.height() - 100
+                self._flash_label.move(max(10, x), max(10, y))
+                self._flash_label.show()
+                self._flash_label.raise_()
+
+                # Auto-hide after ms
+                QTimer.singleShot(ms, lambda: self._flash_label.hide())
+        except Exception:
+            pass
 
     def save_changes(self):
         current_index = self.stack.currentIndex()
