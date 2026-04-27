@@ -11,10 +11,11 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QGridLayout, QStackedWidget, QSpacerItem, QSizePolicy, QColorDialog,
     QLineEdit, QToolBar, QComboBox, QDateEdit, QSpinBox, QSlider, QCheckBox, QGroupBox, QScrollArea, QInputDialog, QTabWidget, QTimeEdit, QStatusBar
 )
-from PyQt6.QtCore import Qt, QDate, QTime, QTimer
-from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt, QDate, QTime, QTimer, QSettings
+from PyQt6.QtGui import QColor, QAction
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter
 
 # ----- COLORS -----
 LIGHT_BG = "#f2f7f2"
@@ -1896,27 +1897,35 @@ class DataGraphPage(BasePage):
         self.temp_graph.ax.plot(self.tracking_data['time'], display_temps, 
                                 'r-', linewidth=2, marker='o', markersize=4)
         self.temp_graph.ax.set_title("Temperature Over Time", fontsize=14, fontweight='bold')
-        self.temp_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        # Time stored in seconds; format as MM:SS
+        def format_mmss(x, pos=None):
+            m = int(x) // 60
+            s = int(x) % 60
+            return f"{m:02d}:{s:02d}"
+        self.temp_graph.ax.xaxis.set_major_formatter(FuncFormatter(format_mmss))
+        self.temp_graph.ax.set_xlabel("Elapsed Time (MM:SS)", fontsize=12)
         self.temp_graph.ax.set_ylabel(f"Temperature ({temp_unit})", fontsize=12)
         self.temp_graph.ax.grid(True, alpha=0.3)
         self.temp_graph.draw()
         
         # Humidity graph
         self.humidity_graph.ax.clear()
-        self.humidity_graph.ax.plot(self.tracking_data['time'], self.tracking_data['humidity'], 
+        self.humidity_graph.ax.plot(self.tracking_data['time'], self.tracking_data['humidity'],
                                      'b-', linewidth=2, marker='s', markersize=4)
         self.humidity_graph.ax.set_title("Humidity Over Time", fontsize=14, fontweight='bold')
-        self.humidity_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.humidity_graph.ax.xaxis.set_major_formatter(FuncFormatter(format_mmss))
+        self.humidity_graph.ax.set_xlabel("Elapsed Time (MM:SS)", fontsize=12)
         self.humidity_graph.ax.set_ylabel("Humidity (%)", fontsize=12)
         self.humidity_graph.ax.grid(True, alpha=0.3)
         self.humidity_graph.draw()
-        
+
         # CO2 graph
         self.air_quality_graph.ax.clear()
-        self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'], 
+        self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'],
                                        'g-', linewidth=2, marker='^', markersize=4)
         self.air_quality_graph.ax.set_title("CO2 (ppm) Over Time", fontsize=14, fontweight='bold')
-        self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+        self.air_quality_graph.ax.xaxis.set_major_formatter(FuncFormatter(format_mmss))
+        self.air_quality_graph.ax.set_xlabel("Elapsed Time (MM:SS)", fontsize=12)
         self.air_quality_graph.ax.set_ylabel("CO2 (ppm)", fontsize=12)
         self.air_quality_graph.ax.grid(True, alpha=0.3)
         self.air_quality_graph.ax.set_ylim(bottom=0)
@@ -1948,6 +1957,7 @@ class DataGraphPage(BasePage):
             temp_value = None
             humidity_value = None
             voc_value = None
+            got_data = False
 
             # Use persistent serial connection if available; otherwise try to open one
             if self.serial_conn is None:
@@ -1961,56 +1971,63 @@ class DataGraphPage(BasePage):
                     except Exception as e:
                         print(f"Could not open serial port {port}: {e}")
 
-            if self.serial_conn:
-                # Read up to a few lines from the buffer to pick up the latest values
+            if self.serial_conn and getattr(self.serial_conn, 'is_open', False):
+                # Only attempt to read when the serial connection reports data waiting
                 try:
-                    for _ in range(10):
-                        raw = self.serial_conn.readline()
-                        if not raw:
-                            break
-                        try:
-                            line = raw.decode().strip()
-                        except Exception:
-                            continue
+                    if hasattr(self.serial_conn, 'in_waiting') and self.serial_conn.in_waiting > 0:
+                        # Read up to a few lines from the buffer to pick up the latest values
+                        for _ in range(10):
+                            raw = self.serial_conn.readline()
+                            if not raw:
+                                break
+                            try:
+                                line = raw.decode().strip()
+                            except Exception:
+                                continue
 
-                        if not line:
-                            continue
+                            if not line:
+                                continue
 
-                        # Append raw line to serial debug log (keep last 200 lines)
-                        try:
-                            if hasattr(self, 'serial_log') and self.serial_log is not None:
-                                self.serial_log.append(line)
-                                # Trim log: keep last ~200 lines
-                                contents = self.serial_log.toPlainText().splitlines()
-                                if len(contents) > 200:
-                                    # keep last 200
-                                    self.serial_log.setPlainText('\n'.join(contents[-200:]))
-                        except Exception:
-                            pass
+                            got_data = True
 
-                        # Parse MQ sensor line: MQ_DATA,rawADC,ppm
-                        if line.startswith("MQ_DATA"):
-                            parts = line.split(",")
-                            if len(parts) >= 3:
-                                try:
-                                    ppm = float(parts[2])
-                                    voc_value = ppm
-                                except ValueError:
-                                    pass
+                            # Append raw line to serial debug log (keep last 200 lines)
+                            try:
+                                if hasattr(self, 'serial_log') and self.serial_log is not None:
+                                    self.serial_log.append(line)
+                                    contents = self.serial_log.toPlainText().splitlines()
+                                    if len(contents) > 200:
+                                        self.serial_log.setPlainText('\n'.join(contents[-200:]))
+                            except Exception:
+                                pass
 
-                        # Parse DHT sensor line: DHT_DATA,temp,humidity
-                        elif line.startswith("DHT_DATA"):
-                            parts = line.split(",")
-                            if len(parts) >= 3:
-                                try:
-                                    temp_value = float(parts[1])
-                                    humidity_value = float(parts[2])
-                                except ValueError:
-                                    pass
+                            # Parse MQ sensor line: MQ_DATA,rawADC,ppm
+                            if line.startswith("MQ_DATA"):
+                                parts = line.split(",")
+                                if len(parts) >= 3:
+                                    try:
+                                        ppm = float(parts[2])
+                                        voc_value = ppm
+                                    except ValueError:
+                                        pass
+
+                            # Parse DHT sensor line: DHT_DATA,temp,humidity
+                            elif line.startswith("DHT_DATA"):
+                                parts = line.split(",")
+                                if len(parts) >= 3:
+                                    try:
+                                        temp_value = float(parts[1])
+                                        humidity_value = float(parts[2])
+                                    except ValueError:
+                                        pass
                 except Exception as e:
                     print(f"Error reading from persistent serial connection: {e}")
 
-            # Fill missing values with last known or fallback
+            # If we didn't parse any real data this cycle, don't create ghost data.
+            if not got_data:
+                # Do nothing; keep last-known values on screen and do not append or update graphs
+                return
+
+            # Fill missing fields with last-known (so partial messages update only changed fields)
             if temp_value is None:
                 temp_value = self.last_temp
             if humidity_value is None:
@@ -2018,20 +2035,13 @@ class DataGraphPage(BasePage):
             if voc_value is None:
                 voc_value = self.last_voc
 
-            # If still missing, use fallback (random) values
-            if temp_value is None or humidity_value is None or voc_value is None:
-                ftemp, fhum, fvoc = self.get_fallback_values()
-                if temp_value is None:
-                    temp_value = ftemp
-                if humidity_value is None:
-                    humidity_value = fhum
-                if voc_value is None:
-                    voc_value = fvoc
-
-            # Save last-known values
-            self.last_temp = temp_value
-            self.last_humidity = humidity_value
-            self.last_voc = voc_value
+            # Save last-known values (only updated when real data arrived)
+            if temp_value is not None:
+                self.last_temp = temp_value
+            if humidity_value is not None:
+                self.last_humidity = humidity_value
+            if voc_value is not None:
+                self.last_voc = voc_value
 
             # Convert temperature for display
             display_temp, temp_unit = self.get_display_temperature(temp_value)
@@ -2050,8 +2060,9 @@ class DataGraphPage(BasePage):
 
             # Store data if tracking is active (always store in Celsius for consistency)
             if self.tracking_active and self.tracking_start_time is not None:
-                elapsed_minutes = (time.time() - self.tracking_start_time) / 60.0
-                self.tracking_data['time'].append(elapsed_minutes)
+                # store elapsed time in seconds for MM:SS plotting
+                elapsed_seconds = int(time.time() - self.tracking_start_time)
+                self.tracking_data['time'].append(elapsed_seconds)
                 self.tracking_data['temperature'].append(temp_value)  # Store in Celsius
                 self.tracking_data['humidity'].append(humidity_value)
                 self.tracking_data['voc'].append(voc_value)
@@ -2060,32 +2071,21 @@ class DataGraphPage(BasePage):
 
         except Exception as e:
             print(f"Error reading from Arduino: {e}")
-            # On error, fall back to previous or random values and update UI
+            # On error, keep last-known values on screen (do not invent data)
             temp_value = self.last_temp
             humidity_value = self.last_humidity
             voc_value = self.last_voc
-            if temp_value is None or humidity_value is None or voc_value is None:
-                temp_value, humidity_value, voc_value = self.get_fallback_values()
-
-            display_temp, temp_unit = self.get_display_temperature(temp_value)
-            self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
-            self.sensor_indicators[1][2].setText(f"{round(humidity_value,2)}%")
-            self.sensor_indicators[2][2].setText(f"{round(voc_value,2)} ppm")
+            display_temp, temp_unit = self.get_display_temperature(temp_value) if temp_value is not None else (None, "°C")
+            if display_temp is not None:
+                self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
+            if humidity_value is not None:
+                self.sensor_indicators[1][2].setText(f"{round(humidity_value,2)}%")
+            if voc_value is not None:
+                self.sensor_indicators[2][2].setText(f"{round(voc_value,2)} ppm")
             for indicator in self.sensor_indicators:
                 indicator[2].repaint()
 
-    def get_fallback_values(self):
-        """Generate random fallback values for testing"""
-        # Temperature: 20-30°C (will be converted if imperial)
-        temp_value = round(20 + (random.random() * 10), 1)
-        
-        # Humidity: 40-80%
-        humidity_value = round(40 + (random.random() * 40), 1)
-        
-    # CO2: 0-100 ppm
-        voc_value = round(random.random() * 100, 1)
-        
-        return temp_value, humidity_value, voc_value
+    # Removed fallback random data generation to avoid ghost data when device is unplugged.
 
     def get_display_temperature(self, celsius_value):
         """Convert temperature based on units system"""
@@ -2108,20 +2108,7 @@ class DataGraphPage(BasePage):
         except Exception:
             pass
 
-    def generate_fallback_data(self):
-        """Generate random data when Arduino is not available"""
-        temp_value, humidity_value, voc_value = self.get_fallback_values()
-        
-        self.sensor_indicators[0][2].setText(f"{temp_value}°C")
-        self.sensor_indicators[1][2].setText(f"{humidity_value}%")
-        self.sensor_indicators[2][2].setText(f"{voc_value} ppm")
-        
-        # Force immediate update of the display
-        for indicator in self.sensor_indicators:
-            indicator[2].repaint()
-
-        # Initialize experiments
-        self.load_experiments()
+    # generate_fallback_data removed to prevent showing fabricated sensor values when device isn't connected.
 
     def load_experiments(self):
         self.experiment_combo.clear()
@@ -2513,46 +2500,24 @@ class MainWindow(QMainWindow):
         self.scroll_area.setWidgetResizable(True)
         self.setCentralWidget(self.scroll_area)
 
-        # Global stylesheet — cleaner, modern look
-        self.setStyleSheet(f"""
-            /* Base */
-            QMainWindow {{ background-color: {LIGHT_BG}; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }}
-            QWidget {{ color: {TEXT_LIGHT}; }}
-            QLabel {{ font-size: 15px; color: #222222; }}
-            #titleLabel {{ font-size: 26px; font-weight: 700; color: {GREEN_DARK}; margin-bottom: 8px; }}
+        # Settings persistence
+        self._settings = QSettings('Auxora', 'NanoLab')
+        # Load theme (light/dark) from settings; default to light
+        theme = self._settings.value('theme', 'light')
 
-            /* Buttons */
-            QPushButton {{
-                background-color: {GREEN};
-                color: #ffffff;
-                border: 0;
-                border-radius: 10px;
-                padding: 10px 16px;
-                font-size: 14px;
-                font-weight: 600;
-            }}
-            QPushButton:hover {{ background-color: #7fcf87; }}
-            QPushButton:pressed {{ background-color: #6bb37a; }}
+        # Add a tiny toolbar with a dark-mode toggle
+        toolbar = self.addToolBar('Appearance')
+        toolbar.setMovable(False)
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.dark_action = QAction('Dark Mode', self)
+        self.dark_action.setCheckable(True)
+        self.dark_action.triggered.connect(self.toggle_dark_mode)
+        toolbar.addAction(self.dark_action)
 
-            /* Inputs */
-            QComboBox, QSpinBox, QLineEdit, QDateEdit, QTimeEdit {{
-                background-color: #ffffff;
-                border: 1px solid #d6d6d6;
-                border-radius: 6px;
-                padding: 6px;
-            }}
-
-            /* Cards */
-            QWidget[isCard="true"] {{
-                background-color: #ffffff;
-                border-radius: 12px;
-                border: 1px solid #e8e8e8;
-            }}
-
-            /* Groups */
-            QGroupBox {{ font-weight: 700; border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 8px; padding-top: 12px; }}
-            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; }}
-        """)
+        # Apply the stored or default stylesheet
+        self.apply_stylesheet(theme)
+        # set the action checked state to reflect current theme
+        self.dark_action.setChecked(theme == 'dark')
 
         # Start a timer to poll serial ports and update board status
         self._port_poll_timer = QTimer(self)
@@ -2637,6 +2602,73 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'main_page'):
                 self.main_page.connection_status.setStyleSheet("font-size: 24px; color: #c0392b; font-weight: bold;")
                 self.main_page.connection_text.setText("Board not detected")
+
+    def apply_stylesheet(self, theme: str):
+        """Apply a light or dark stylesheet and save preference."""
+        theme = theme or 'light'
+        if theme == 'dark':
+            # dark theme
+            self.setStyleSheet(f"""
+                QMainWindow {{ background-color: #1f1f1f; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }}
+                QWidget {{ color: #eaeaea; }}
+                QLabel {{ font-size: 15px; color: #e6e6e6; }}
+                #titleLabel {{ font-size: 26px; font-weight: 700; color: #a8d5a2; margin-bottom: 8px; }}
+                QPushButton {{ background-color: #2f4f2d; color: #fff; border-radius: 8px; padding: 8px; }}
+                QComboBox, QSpinBox, QLineEdit, QDateEdit, QTimeEdit {{ background-color: #2b2b2b; border: 1px solid #444; color: #eaeaea; }}
+                QWidget[isCard="true"] {{ background-color: #2a2a2a; border: 1px solid #3a3a3a; }}
+                QGroupBox {{ font-weight: 700; border: 1px solid #3a3a3a; border-radius: 8px; margin-top: 8px; padding-top: 12px; }}
+            """)
+        else:
+            # light theme (original)
+            self.setStyleSheet(f"""
+                /* Base */
+                QMainWindow {{ background-color: {LIGHT_BG}; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }}
+                QWidget {{ color: {TEXT_LIGHT}; }}
+                QLabel {{ font-size: 15px; color: #222222; }}
+                #titleLabel {{ font-size: 26px; font-weight: 700; color: {GREEN_DARK}; margin-bottom: 8px; }}
+
+                /* Buttons */
+                QPushButton {{
+                    background-color: {GREEN};
+                    color: #ffffff;
+                    border: 0;
+                    border-radius: 10px;
+                    padding: 10px 16px;
+                    font-size: 14px;
+                    font-weight: 600;
+                }}
+                QPushButton:hover {{ background-color: #7fcf87; }}
+                QPushButton:pressed {{ background-color: #6bb37a; }}
+
+                /* Inputs */
+                QComboBox, QSpinBox, QLineEdit, QDateEdit, QTimeEdit {{
+                    background-color: #ffffff;
+                    border: 1px solid #d6d6d6;
+                    border-radius: 6px;
+                    padding: 6px;
+                }}
+
+                /* Cards */
+                QWidget[isCard="true"] {{
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    border: 1px solid #e8e8e8;
+                }}
+
+                /* Groups */
+                QGroupBox {{ font-weight: 700; border: 1px solid #e0e0e0; border-radius: 8px; margin-top: 8px; padding-top: 12px; }}
+                QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; }}
+            """)
+
+        # persist setting
+        try:
+            self._settings.setValue('theme', theme)
+        except Exception:
+            pass
+
+    def toggle_dark_mode(self, checked: bool):
+        new_theme = 'dark' if checked else 'light'
+        self.apply_stylesheet(new_theme)
 
     def go_back(self):
         if self.current_history_index > 0:
