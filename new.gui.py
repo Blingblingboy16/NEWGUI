@@ -32,9 +32,16 @@ def style_button(button):
 
 class GraphCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None):
+        # Make the default figure taller to give graphs more vertical space
         self.fig = Figure(figsize=(8, 6), dpi=100)
         self.ax = self.fig.add_subplot(111)
         super().__init__(self.fig)
+        # Request more vertical space in layouts and allow expansion
+        try:
+            self.setMinimumHeight(520)
+            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        except Exception:
+            pass
 
     def wheelEvent(self, event):
         # Do not accept wheel events to allow scrolling on the page
@@ -183,20 +190,8 @@ class MainPage(BasePage):
         settings_header.setStyleSheet("font-size: 18px; font-weight: bold; color: #2f4f2d; margin-bottom: 10px;")
         settings_layout.addWidget(settings_header)
 
-        # Units system toggle
-        units_layout = QHBoxLayout()
-        units_layout.setSpacing(15)
-        units_label = QLabel("Units:")
-        units_label.setStyleSheet("font-size: 14px; font-weight: 600;")
-        self.units_combo = QComboBox()
-        self.units_combo.addItems(["Metric", "Imperial"])
-        self.units_combo.setCurrentText("Metric")
-        self.units_combo.setMinimumHeight(40)
-        self.units_combo.currentTextChanged.connect(self.change_units)
-        units_layout.addWidget(units_label)
-        units_layout.addWidget(self.units_combo)
-        units_layout.addStretch()
-        settings_layout.addLayout(units_layout)
+    # Units are fixed to Metric (no selection needed)
+    # (previously there was a Metric/Imperial selector here)
 
         # Grid of setting buttons
         grid = QGridLayout()
@@ -311,14 +306,8 @@ class MainPage(BasePage):
             self.connection_status.setStyleSheet("font-size: 24px; color: #f39c12; font-weight: bold;")
 
     def change_units(self, text):
-        main_window = self.get_main_window()
-        main_window.units_system = "metric" if text == "Metric" else "imperial"
-        print(f"Units changed to {main_window.units_system}")
-        # Update all pages that display units
-        if hasattr(main_window.water_page, 'update_units'):
-            main_window.water_page.update_units()
-        if hasattr(main_window.sensor_page, 'update_units'):
-            main_window.sensor_page.update_units()
+        # Units are fixed to Metric; this handler is intentionally a no-op.
+        return
 
     def send_to_nanolab(self):
         """Send all saved settings to the Arduino via serial communication"""
@@ -597,12 +586,8 @@ class WaterPumpPage(BasePage):
         self.body.addLayout(btn_layout)
 
     def update_units(self):
-        main_window = self.get_main_window()
-        if main_window is not None:
-            if main_window.units_system == "metric":
-                self.flow_label.setText("Flow Rate (L/min):")
-            else:
-                self.flow_label.setText("Flow Rate (GPM):")
+        # Units fixed to Metric (L/min)
+        self.flow_label.setText("Flow Rate (L/min):")
 
     def apply_water_pump(self):
         main_window = self.get_main_window()
@@ -617,7 +602,7 @@ class WaterPumpPage(BasePage):
         print("Water pump settings applied")
         # Friendly UX: notify user
         if main_window is not None and hasattr(main_window, 'show_temporary_message'):
-            main_window.show_temporary_message("settings saved!", 2500)
+            main_window.show_temporary_message("Settings saved", 2500)
 
 class LEDSettingsPage(BasePage):
     def __init__(self, switch):
@@ -846,16 +831,34 @@ class LEDSettingsPage(BasePage):
         main_window.overview_page.update_labels()
 
         # Send to ESP32 if USB connection selected
-        if main_window.connection_combo.currentText() == "USB Port":
+        connection_text = None
+        # connection_combo may live on the main page widget rather than MainWindow
+        if hasattr(main_window, 'connection_combo'):
+            try:
+                connection_text = main_window.connection_combo.currentText()
+            except Exception:
+                connection_text = None
+        elif hasattr(main_window, 'main_page') and hasattr(main_window.main_page, 'connection_combo'):
+            try:
+                connection_text = main_window.main_page.connection_combo.currentText()
+            except Exception:
+                connection_text = None
+
+        # Attempt to send to ESP32 if one is connected (send_led_to_esp32 will
+        # probe USB ports and only send if an appropriate port is found).
+        try:
             self.send_led_to_esp32(main_window)
+        except Exception:
+            # If sending fails, we still want to update labels and show confirmation
+            pass
 
         print("LED settings applied")
         # Always show a friendly confirmation regardless of send outcome
         try:
             if main_window is not None and hasattr(main_window, 'show_temporary_message'):
-                main_window.show_temporary_message("settings saved!", 2500)
+                    main_window.show_temporary_message("Settings saved", 2500)
         except Exception:
-            print("settings saved!")
+            print("setting saved!")
 
     def send_led_to_esp32(self, main_window):
         # Find ESP32 port
@@ -986,7 +989,7 @@ class FanSettingsPage(BasePage):
         main_window.overview_page.update_labels()
         print("Fan settings applied")
         if main_window is not None and hasattr(main_window, 'show_temporary_message'):
-            main_window.show_temporary_message("settings saved!", 2500)
+            main_window.show_temporary_message("Settings saved", 2500)
 
 class DCMotorPage(BasePage):
     def __init__(self, switch):
@@ -1078,7 +1081,7 @@ class DCMotorPage(BasePage):
         main_window.overview_page.update_labels()
         print("DC motor settings applied")
         if main_window is not None and hasattr(main_window, 'show_temporary_message'):
-            main_window.show_temporary_message("settings saved!", 2500)
+            main_window.show_temporary_message("Settings saved", 2500)
 
 class SensorPage(BasePage):
     def __init__(self, switch):
@@ -1112,12 +1115,6 @@ class SensorPage(BasePage):
 
         self.body.addLayout(interval_layout)
 
-<<<<<<< HEAD
-    # Note: simplified sensor UI — only sensor On/Off and interval (minutes)
-=======
-    # (Other detailed sensor controls removed — page simplified)
->>>>>>> e2b7701 (updates)
-
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(20)
@@ -1132,7 +1129,7 @@ class SensorPage(BasePage):
         btn_layout.addWidget(back_btn)
         self.body.addLayout(btn_layout)
 
-        # Update units
+        # Update units (no per-sensor detailed units in simplified UI)
         self.update_units()
 
     def update_units(self):
@@ -1150,13 +1147,15 @@ class SensorPage(BasePage):
         # Only store simple settings: interval in minutes
         main_window.sensor_reading_interval = self.interval_spinbox.value()
         main_window.overview_page.update_labels()
-        
-        # Restart the live data timer with the new interval
-        main_window.graph_page.restart_timer_with_new_interval()
-        
+
+        # Restart the live data timer with the new interval (if available)
+        if hasattr(main_window, 'graph_page') and main_window.graph_page is not None:
+            if hasattr(main_window.graph_page, 'restart_timer_with_new_interval'):
+                main_window.graph_page.restart_timer_with_new_interval()
+
         print("Sensor settings applied")
         if main_window is not None and hasattr(main_window, 'show_temporary_message'):
-            main_window.show_temporary_message("settings saved!", 2500)
+            main_window.show_temporary_message("Settings saved", 2500)
 
 class SettingsOverviewPage(BasePage):
     def __init__(self, switch, main_window):
@@ -1260,13 +1259,7 @@ class SettingsOverviewPage(BasePage):
         sensor_settings_texts = [
             "Status: On",
             "Reading Interval: 5 minutes",
-<<<<<<< HEAD
-            "DHT11 Status: On",
-            "DHT11 Threshold: 10 cm",
-            "VOC Status: On",
-            "VOC Threshold: 5 ppm"
-=======
->>>>>>> e2b7701 (updates)
+            # Simplified overview — detailed sensor entries removed
         ]
 
         for text in sensor_settings_texts:
@@ -1399,55 +1392,70 @@ class SettingsOverviewPage(BasePage):
         print("Settings reset to default values")
 
     def update_labels(self):
+        # Helper: safely set label text if the list and index exist
+        def sset(lbls, idx, text):
+            try:
+                if isinstance(lbls, list) and len(lbls) > idx and lbls[idx] is not None:
+                    lbls[idx].setText(text)
+            except Exception:
+                pass
+
         # Update water pump labels
-        self.water_labels[0].setText(f"Status: {'On' if self.main_window.water_pump_status else 'Off'}")
-        self.water_labels[1].setText(f"Speed: {self.main_window.water_pump_speed}%")
-        self.water_labels[2].setText(f"Flow Rate: {self.main_window.water_pump_flow} L/min")
-        self.water_labels[3].setText(f"Duration: {self.main_window.water_pump_duration} seconds")
-        self.water_labels[4].setText(f"Interval: {self.main_window.water_pump_interval} minutes")
+        sset(self.water_labels, 0, f"Status: {'On' if self.main_window.water_pump_status else 'Off'}")
+        sset(self.water_labels, 1, f"Speed: {self.main_window.water_pump_speed}%")
+        sset(self.water_labels, 2, f"Flow Rate: {self.main_window.water_pump_flow} L/min")
+        sset(self.water_labels, 3, f"Duration: {self.main_window.water_pump_duration} seconds")
+        sset(self.water_labels, 4, f"Interval: {self.main_window.water_pump_interval} minutes")
 
-        # Update LED labels
-        self.led_labels[0].setText(f"Status: {'On' if self.main_window.led_status else 'Off'}")
-        self.led_labels[1].setText(f"Brightness: {self.main_window.led_brightness}%")
-        r, g, b = LEDSettingsPage.normalize_led_color(self.main_window.led_color)
-        self.led_labels[2].setText(f"Color: RGB({r}, {g}, {b})")
-        self.led_labels[3].setText(f"Duration: {self.main_window.led_duration} seconds")
-        self.led_labels[4].setText(f"Interval: {self.main_window.led_interval} minutes")
+        # Update LED labels (if present)
+        if hasattr(self, 'led_labels'):
+            sset(self.led_labels, 0, f"Status: {'On' if getattr(self.main_window, 'led_status', False) else 'Off'}")
+            sset(self.led_labels, 1, f"Brightness: {getattr(self.main_window, 'led_brightness', 0)}%")
+            try:
+                r, g, b = LEDSettingsPage.normalize_led_color(getattr(self.main_window, 'led_color', (255, 255, 255)))
+                sset(self.led_labels, 2, f"Color: RGB({r}, {g}, {b})")
+            except Exception:
+                pass
+            sset(self.led_labels, 3, f"Duration: {getattr(self.main_window, 'led_duration', 0)} seconds")
+            sset(self.led_labels, 4, f"Interval: {getattr(self.main_window, 'led_interval', 0)} minutes")
 
-        # Update fan labels
-        self.fan_labels[0].setText(f"Status: {'On' if self.main_window.fan_status else 'Off'}")
-        self.fan_labels[1].setText(f"Intensity: {self.main_window.fan_intensity}%")
-        self.fan_labels[2].setText(f"Duration: {self.main_window.fan_duration} seconds")
-        self.fan_labels[3].setText(f"Interval: {self.main_window.fan_interval} minutes")
+        # Update fan labels (if present)
+        if hasattr(self, 'fan_labels'):
+            sset(self.fan_labels, 0, f"Status: {'On' if getattr(self.main_window, 'fan_status', False) else 'Off'}")
+            sset(self.fan_labels, 1, f"Intensity: {getattr(self.main_window, 'fan_intensity', 0)}%")
+            sset(self.fan_labels, 2, f"Duration: {getattr(self.main_window, 'fan_duration', 0)} seconds")
+            sset(self.fan_labels, 3, f"Interval: {getattr(self.main_window, 'fan_interval', 0)} minutes")
 
         # Update DC motor labels
-        self.camera_labels[0].setText(f"Status: {'On' if self.main_window.dc_enabled else 'Off'}")
+        sset(self.camera_labels, 0, f"Status: {'On' if getattr(self.main_window, 'dc_enabled', False) else 'Off'}")
         # Show speed as percent
-        speed_pct = int((self.main_window.dc_speed / 255.0) * 100)
-        self.camera_labels[1].setText(f"Power: {speed_pct}%")
-        self.camera_labels[2].setText(f"Run Duration: {self.main_window.dc_on_duration} seconds")
-        self.camera_labels[3].setText(f"Off Interval: {self.main_window.dc_off_interval} minutes")
-        # Ensure the fifth label (if present) is cleared or used for raw speed
-        if len(self.camera_labels) > 4:
-            self.camera_labels[4].setText(f"Raw Speed: {self.main_window.dc_speed}")
+        try:
+            speed_pct = int((getattr(self.main_window, 'dc_speed', 0) / 255.0) * 100)
+        except Exception:
+            speed_pct = 0
+        sset(self.camera_labels, 1, f"Power: {speed_pct}%")
+        sset(self.camera_labels, 2, f"Run Duration: {getattr(self.main_window, 'dc_on_duration', 0)} seconds")
+        sset(self.camera_labels, 3, f"Off Interval: {getattr(self.main_window, 'dc_off_interval', 0)} minutes")
+        if hasattr(self, 'camera_labels') and len(self.camera_labels) > 4:
+            sset(self.camera_labels, 4, f"Raw Speed: {getattr(self.main_window, 'dc_speed', 0)}")
 
-        # Update sensor labels
-        self.sensor_labels[0].setText(f"Status: {'On' if self.main_window.sensor_status else 'Off'}")
-        self.sensor_labels[1].setText(f"Reading Interval: {self.main_window.sensor_reading_interval} minutes")
-        self.sensor_labels[2].setText(f"DHT11 Status: {'On' if self.main_window.dht_status else 'Off'}")
-        self.sensor_labels[3].setText(f"DHT11 Threshold: {self.main_window.dht_threshold} cm")
-        self.sensor_labels[4].setText(f"VOC Status: {'On' if self.main_window.voc_status else 'Off'}")
-        self.sensor_labels[5].setText(f"VOC Threshold: {self.main_window.voc_threshold} ppm")
+        # Update sensor labels (only if entries exist)
+        sset(self.sensor_labels, 0, f"Status: {'On' if getattr(self.main_window, 'sensor_status', False) else 'Off'}")
+        sset(self.sensor_labels, 1, f"Reading Interval: {getattr(self.main_window, 'sensor_reading_interval', 0)} minutes")
+        sset(self.sensor_labels, 2, f"DHT11 Status: {'On' if getattr(self.main_window, 'dht_status', False) else 'Off'}")
+        sset(self.sensor_labels, 3, f"DHT11 Threshold: {getattr(self.main_window, 'dht_threshold', 0)} cm")
+        sset(self.sensor_labels, 4, f"CO2 Sensor Status: {'On' if getattr(self.main_window, 'voc_status', False) else 'Off'}")
+        sset(self.sensor_labels, 5, f"CO2 Threshold: {getattr(self.main_window, 'voc_threshold', 0)} ppm")
 
         # Update schedule labels
         if hasattr(self.main_window, 'schedule_enabled') and self.main_window.schedule_enabled:
-            self.schedule_labels[0].setText("Status: Enabled")
-            self.schedule_labels[1].setText(f"Start Date: {self.main_window.schedule_start_date.toString('MMM dd, yyyy')}")
-            self.schedule_labels[2].setText(f"End Date: {self.main_window.schedule_end_date.toString('MMM dd, yyyy')}")
-            self.schedule_labels[3].setText(f"Start Time: {self.main_window.schedule_start_time.toString('hh:mm AP')}")
-            self.schedule_labels[4].setText(f"End Time: {self.main_window.schedule_end_time.toString('hh:mm AP')}")
+            sset(self.schedule_labels, 0, "Status: Enabled")
+            sset(self.schedule_labels, 1, f"Start Date: {self.main_window.schedule_start_date.toString('MMM dd, yyyy')}")
+            sset(self.schedule_labels, 2, f"End Date: {self.main_window.schedule_end_date.toString('MMM dd, yyyy')}")
+            sset(self.schedule_labels, 3, f"Start Time: {self.main_window.schedule_start_time.toString('hh:mm AP')}")
+            sset(self.schedule_labels, 4, f"End Time: {self.main_window.schedule_end_time.toString('hh:mm AP')}")
         else:
-            self.schedule_labels[0].setText("Status: Disabled")
+            sset(self.schedule_labels, 0, "Status: Disabled")
             self.schedule_labels[1].setText("Start Date: Not set")
             self.schedule_labels[2].setText("End Date: Not set")
             self.schedule_labels[3].setText("Start Time: Not set")
@@ -1480,6 +1488,15 @@ class DataGraphPage(BasePage):
 
         # Create graph canvas
         self.plant_graph = GraphCanvas(self)
+        # Initial title/labels for plant graph
+        try:
+            self.plant_graph.ax.set_title("NanoLab Plant Growth Experiments", fontsize=16, fontweight='bold')
+            self.plant_graph.ax.set_xlabel("Time Since Start of Experiment (hours)", fontsize=14)
+            self.plant_graph.ax.set_ylabel("Plant Length (cm)", fontsize=14)
+            self.plant_graph.ax.grid(True, alpha=0.3)
+            self.plant_graph.draw()
+        except Exception:
+            pass
 
         # Interval display
         self.interval_label = QLabel("Last interval: N/A")
@@ -1492,8 +1509,8 @@ class DataGraphPage(BasePage):
         reset_btn.clicked.connect(self.reset_graph)
         plant_layout.addWidget(reset_btn)
 
-        # Add plant graph
-        plant_layout.addWidget(self.plant_graph)
+        # Add plant graph (give it higher stretch so it becomes taller)
+        plant_layout.addWidget(self.plant_graph, 2)
 
         # Manual data entry
         manual_layout = QHBoxLayout()
@@ -1525,22 +1542,49 @@ class DataGraphPage(BasePage):
         temp_widget = QWidget()
         temp_layout = QVBoxLayout(temp_widget)
         self.temp_graph = GraphCanvas(self)
-        temp_layout.addWidget(self.temp_graph)
+        # Initial title/labels for temperature graph
+        try:
+            self.temp_graph.ax.set_title("Temperature Over Time", fontsize=14, fontweight='bold')
+            self.temp_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+            self.temp_graph.ax.set_ylabel("Temperature (°C)", fontsize=12)
+            self.temp_graph.ax.grid(True, alpha=0.3)
+            self.temp_graph.draw()
+        except Exception:
+            pass
+        temp_layout.addWidget(self.temp_graph, 1)
         self.sensor_tabs.addTab(temp_widget, "Temperature")
 
         # Humidity graph
         humidity_widget = QWidget()
         humidity_layout = QVBoxLayout(humidity_widget)
         self.humidity_graph = GraphCanvas(self)
-        humidity_layout.addWidget(self.humidity_graph)
+        # Initial title/labels for humidity graph
+        try:
+            self.humidity_graph.ax.set_title("Humidity Over Time", fontsize=14, fontweight='bold')
+            self.humidity_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+            self.humidity_graph.ax.set_ylabel("Humidity (%)", fontsize=12)
+            self.humidity_graph.ax.grid(True, alpha=0.3)
+            self.humidity_graph.draw()
+        except Exception:
+            pass
+        humidity_layout.addWidget(self.humidity_graph, 1)
         self.sensor_tabs.addTab(humidity_widget, "Humidity")
 
-        # Air Quality graph (VOC)
+    # CO2 graph (was labeled VOC)
         air_quality_widget = QWidget()
         air_quality_layout = QVBoxLayout(air_quality_widget)
         self.air_quality_graph = GraphCanvas(self)
-        air_quality_layout.addWidget(self.air_quality_graph)
-        self.sensor_tabs.addTab(air_quality_widget, "Air Quality")
+        # Initial title/labels for air quality graph
+        try:
+            self.air_quality_graph.ax.set_title("CO2 (ppm) Over Time", fontsize=14, fontweight='bold')
+            self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
+            self.air_quality_graph.ax.set_ylabel("CO2 (ppm)", fontsize=12)
+            self.air_quality_graph.ax.grid(True, alpha=0.3)
+            self.air_quality_graph.draw()
+        except Exception:
+            pass
+        air_quality_layout.addWidget(self.air_quality_graph, 1)
+        self.sensor_tabs.addTab(air_quality_widget, "CO2")
 
         sensor_layout.addWidget(self.sensor_tabs)
 
@@ -1556,7 +1600,7 @@ class DataGraphPage(BasePage):
         sensor_names = [
             ("Temperature", "°C"),
             ("Humidity", "%"),
-            ("Air Quality", "ppm")
+            ("CO2", "ppm")
         ]
 
         for name, unit in sensor_names:
@@ -1809,20 +1853,20 @@ class DataGraphPage(BasePage):
         self.temp_graph.ax.grid(True, alpha=0.3)
         self.temp_graph.draw()
         
-        self.humidity_graph.ax.clear()
-        self.humidity_graph.ax.set_title("Humidity Over Time", fontsize=14, fontweight='bold')
-        self.humidity_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
-        self.humidity_graph.ax.set_ylabel("Humidity (%)", fontsize=12)
-        self.humidity_graph.ax.grid(True, alpha=0.3)
-        self.humidity_graph.draw()
+        self.humidity_graph.ax.draw()
         
+        # CO2 graph
         self.air_quality_graph.ax.clear()
-        self.air_quality_graph.ax.set_title("Air Quality (VOC) Over Time", fontsize=14, fontweight='bold')
+        self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'], 
+                                       'g-', linewidth=2, marker='^', markersize=4)
+        self.air_quality_graph.ax.set_title("CO2 (ppm) Over Time", fontsize=14, fontweight='bold')
         self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
-        self.air_quality_graph.ax.set_ylabel("VOC (ppm)", fontsize=12)
+        self.air_quality_graph.ax.set_ylabel("CO2 (ppm)", fontsize=12)
         self.air_quality_graph.ax.grid(True, alpha=0.3)
+        self.air_quality_graph.ax.set_ylim(bottom=0)
         self.air_quality_graph.draw()
         
+        print("Sensor graphs updated")
         # Update UI
         self.start_tracking_btn.setEnabled(True)
         self.stop_tracking_btn.setEnabled(False)
@@ -1867,16 +1911,17 @@ class DataGraphPage(BasePage):
         self.humidity_graph.ax.grid(True, alpha=0.3)
         self.humidity_graph.draw()
         
-        # Air Quality graph
+        # CO2 graph
         self.air_quality_graph.ax.clear()
         self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'], 
                                        'g-', linewidth=2, marker='^', markersize=4)
-        self.air_quality_graph.ax.set_title("Air Quality (VOC) Over Time", fontsize=14, fontweight='bold')
+        self.air_quality_graph.ax.set_title("CO2 (ppm) Over Time", fontsize=14, fontweight='bold')
         self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
-        self.air_quality_graph.ax.set_ylabel("VOC (ppm)", fontsize=12)
+        self.air_quality_graph.ax.set_ylabel("CO2 (ppm)", fontsize=12)
         self.air_quality_graph.ax.grid(True, alpha=0.3)
+        self.air_quality_graph.ax.set_ylim(bottom=0)
         self.air_quality_graph.draw()
-        
+
         print("Sensor graphs updated")
 
     def timerEvent(self, event):
@@ -2037,25 +2082,18 @@ class DataGraphPage(BasePage):
         # Humidity: 40-80%
         humidity_value = round(40 + (random.random() * 40), 1)
         
-        # Air Quality: 0-100 ppm
+    # CO2: 0-100 ppm
         voc_value = round(random.random() * 100, 1)
         
         return temp_value, humidity_value, voc_value
 
     def get_display_temperature(self, celsius_value):
         """Convert temperature based on units system"""
-        main_window = self.get_main_window()
-        if main_window is not None and main_window.units_system == "imperial":
-            # Convert Celsius to Fahrenheit
-            fahrenheit = (celsius_value * 9/5) + 32
-            return fahrenheit, "°F"
+        # Units fixed to Metric (Celsius)
         return celsius_value, "°C"
 
     def get_display_temperature_unit(self):
         """Get the temperature unit based on units system"""
-        main_window = self.get_main_window()
-        if main_window is not None and main_window.units_system == "imperial":
-            return "°F"
         return "°C"
 
     def close_serial_connection(self):
@@ -2388,7 +2426,7 @@ class SchedulePage(BasePage):
         main_window.overview_page.update_labels()
         print("Schedule settings applied")
         if main_window is not None and hasattr(main_window, 'show_temporary_message'):
-            main_window.show_temporary_message("settings saved!", 2500)
+            main_window.show_temporary_message("Settings saved", 2500)
 
     def get_main_window(self):
         # Navigate up to MainWindow by traversing parents until finding one with units_system
@@ -2617,25 +2655,30 @@ class MainWindow(QMainWindow):
                 self.overview_page.update_labels()
 
     def show_temporary_message(self, msg: str, ms: int = 3000):
-        """Show a brief message in the window's status bar."""
-        # Always attempt to show in the status bar
-        try:
-            if hasattr(self, '_status') and self._status is not None:
-                self._status.showMessage(msg, ms)
-        except Exception:
-            # fallback to printing
-            print(msg)
+        """Show a brief green popup overlay message in the center-top of the window.
 
-        # Additionally, create a floating, non-modal label overlay so the message
-        # is visible regardless of status bar visibility or stylesheet.
-        # Also show a persistent in-UI flash label so it is visible on all platforms (esp. Ubuntu)
+        We intentionally do NOT use the status bar or print fallbacks here — the user
+        requested only the green popup. The popup is shown using the persistent
+        in-UI `_flash_label` created in __init__.
+        """
         try:
             if hasattr(self, '_flash_label') and self._flash_label is not None:
+                # Use a consistent success style (green background)
+                self._flash_label.setStyleSheet(f"""
+                    QLabel#flashLabel {{
+                        background-color: {GREEN};
+                        color: white;
+                        padding: 10px 18px;
+                        border-radius: 8px;
+                        font-weight: 700;
+                    }}
+                """)
                 self._flash_label.setText(msg)
                 self._flash_label.adjustSize()
-                # Position bottom-center within the main window
+
+                # Position bottom-center within the main window (100px above bottom)
                 x = int((self.width() - self._flash_label.width()) / 2)
-                y = self.height() - self._flash_label.height() - 100
+                y = int(self.height() - self._flash_label.height() - 100)
                 self._flash_label.move(max(10, x), max(10, y))
                 self._flash_label.show()
                 self._flash_label.raise_()
@@ -2643,6 +2686,7 @@ class MainWindow(QMainWindow):
                 # Auto-hide after ms
                 QTimer.singleShot(ms, lambda: self._flash_label.hide())
         except Exception:
+            # Intentionally do nothing on error to avoid side effects
             pass
 
     def save_changes(self):
