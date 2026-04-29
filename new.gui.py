@@ -452,12 +452,11 @@ class MainPage(BasePage):
         humidity_threshold = main_window.sensor_humidity_threshold
         dht_status = "ON" if main_window.dht_status else "OFF"
         dht_threshold = main_window.dht_threshold
-        voc_status = "ON" if main_window.voc_status else "OFF"
-        voc_threshold = main_window.voc_threshold
+
         duration = main_window.sensor_duration
         interval = main_window.sensor_interval
         
-        command = f"SENSOR,{status},{reading_interval},{temp_threshold},{humidity_threshold},{dht_status},{dht_threshold},{voc_status},{voc_threshold},{duration},{interval}\n"
+        command = f"SENSOR,{status},{reading_interval},{temp_threshold},{humidity_threshold},{dht_status},{dht_threshold},{duration},{interval}\n"
         ser.write(command.encode())
         print(f"Sent to Arduino: {command.strip()}")
 
@@ -1378,8 +1377,7 @@ class SettingsOverviewPage(BasePage):
 
         self.main_window.dht_status = True
         self.main_window.dht_threshold = 10
-        self.main_window.voc_status = True
-        self.main_window.voc_threshold = 5
+
 
         # Reset schedule
         self.main_window.schedule_enabled = False
@@ -1445,8 +1443,6 @@ class SettingsOverviewPage(BasePage):
         sset(self.sensor_labels, 1, f"Reading Interval: {getattr(self.main_window, 'sensor_reading_interval', 0)} minutes")
         sset(self.sensor_labels, 2, f"DHT11 Status: {'On' if getattr(self.main_window, 'dht_status', False) else 'Off'}")
         sset(self.sensor_labels, 3, f"DHT11 Threshold: {getattr(self.main_window, 'dht_threshold', 0)} cm")
-        sset(self.sensor_labels, 4, f"CO2 Sensor Status: {'On' if getattr(self.main_window, 'voc_status', False) else 'Off'}")
-        sset(self.sensor_labels, 5, f"CO2 Threshold: {getattr(self.main_window, 'voc_threshold', 0)} ppm")
 
         # Update schedule labels
         if hasattr(self.main_window, 'schedule_enabled') and self.main_window.schedule_enabled:
@@ -1601,7 +1597,6 @@ class DataGraphPage(BasePage):
         sensor_names = [
             ("Temperature", "°C"),
             ("Humidity", "%"),
-            ("CO2", "ppm")
         ]
 
         for name, unit in sensor_names:
@@ -1724,12 +1719,10 @@ class DataGraphPage(BasePage):
             'time': [],
             'temperature': [],
             'humidity': [],
-            'voc': []
         }
         # Keep last-known sensor values so missing fields don't wipe previous readings
         self.last_temp = None
         self.last_humidity = None
-        self.last_voc = None
         # Persistent serial connection (to avoid resetting Arduino on open/close)
         self.serial_conn = None
         
@@ -1788,7 +1781,6 @@ class DataGraphPage(BasePage):
             'time': [],
             'temperature': [],
             'humidity': [],
-            'voc': []
         }
         
         # Ensure timer is started/restarted
@@ -1843,7 +1835,6 @@ class DataGraphPage(BasePage):
             'time': [],
             'temperature': [],
             'humidity': [],
-            'voc': []
         }
         
         # Reset graphs
@@ -1856,16 +1847,6 @@ class DataGraphPage(BasePage):
         
         self.humidity_graph.ax.draw()
         
-        # CO2 graph
-        self.air_quality_graph.ax.clear()
-        self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'], 
-                                       'g-', linewidth=2, marker='^', markersize=4)
-        self.air_quality_graph.ax.set_title("CO2 (ppm) Over Time", fontsize=14, fontweight='bold')
-        self.air_quality_graph.ax.set_xlabel("Time (minutes)", fontsize=12)
-        self.air_quality_graph.ax.set_ylabel("CO2 (ppm)", fontsize=12)
-        self.air_quality_graph.ax.grid(True, alpha=0.3)
-        self.air_quality_graph.ax.set_ylim(bottom=0)
-        self.air_quality_graph.draw()
         
         print("Sensor graphs updated")
         # Update UI
@@ -1919,19 +1900,6 @@ class DataGraphPage(BasePage):
         self.humidity_graph.ax.grid(True, alpha=0.3)
         self.humidity_graph.draw()
 
-        # CO2 graph
-        self.air_quality_graph.ax.clear()
-        self.air_quality_graph.ax.plot(self.tracking_data['time'], self.tracking_data['voc'],
-                                       'g-', linewidth=2, marker='^', markersize=4)
-        self.air_quality_graph.ax.set_title("CO2 (ppm) Over Time", fontsize=14, fontweight='bold')
-        self.air_quality_graph.ax.xaxis.set_major_formatter(FuncFormatter(format_mmss))
-        self.air_quality_graph.ax.set_xlabel("Elapsed Time (MM:SS)", fontsize=12)
-        self.air_quality_graph.ax.set_ylabel("CO2 (ppm)", fontsize=12)
-        self.air_quality_graph.ax.grid(True, alpha=0.3)
-        self.air_quality_graph.ax.set_ylim(bottom=0)
-        self.air_quality_graph.draw()
-
-        print("Sensor graphs updated")
 
     def timerEvent(self, event):
         """Handle timer events for live data updates"""
@@ -1956,7 +1924,6 @@ class DataGraphPage(BasePage):
             # Temporary holders
             temp_value = None
             humidity_value = None
-            voc_value = None
             got_data = False
 
             # Use persistent serial connection if available; otherwise try to open one
@@ -2032,16 +1999,12 @@ class DataGraphPage(BasePage):
                 temp_value = self.last_temp
             if humidity_value is None:
                 humidity_value = self.last_humidity
-            if voc_value is None:
-                voc_value = self.last_voc
 
             # Save last-known values (only updated when real data arrived)
             if temp_value is not None:
                 self.last_temp = temp_value
             if humidity_value is not None:
                 self.last_humidity = humidity_value
-            if voc_value is not None:
-                self.last_voc = voc_value
 
             # Convert temperature for display
             display_temp, temp_unit = self.get_display_temperature(temp_value)
@@ -2049,7 +2012,6 @@ class DataGraphPage(BasePage):
             # Update UI indicators
             self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
             self.sensor_indicators[1][2].setText(f"{round(humidity_value, 2)}%")
-            self.sensor_indicators[2][2].setText(f"{round(voc_value, 2)} ppm")
 
             # Ensure label text remains consistent
             self.sensor_indicators[0][1].setText("Temperature:")
@@ -2065,7 +2027,6 @@ class DataGraphPage(BasePage):
                 self.tracking_data['time'].append(elapsed_seconds)
                 self.tracking_data['temperature'].append(temp_value)  # Store in Celsius
                 self.tracking_data['humidity'].append(humidity_value)
-                self.tracking_data['voc'].append(voc_value)
                 # Update graphs in real-time
                 self.update_sensor_graphs()
 
@@ -2074,14 +2035,11 @@ class DataGraphPage(BasePage):
             # On error, keep last-known values on screen (do not invent data)
             temp_value = self.last_temp
             humidity_value = self.last_humidity
-            voc_value = self.last_voc
             display_temp, temp_unit = self.get_display_temperature(temp_value) if temp_value is not None else (None, "°C")
             if display_temp is not None:
                 self.sensor_indicators[0][2].setText(f"{display_temp}{temp_unit}")
             if humidity_value is not None:
                 self.sensor_indicators[1][2].setText(f"{round(humidity_value,2)}%")
-            if voc_value is not None:
-                self.sensor_indicators[2][2].setText(f"{round(voc_value,2)} ppm")
             for indicator in self.sensor_indicators:
                 indicator[2].repaint()
 
@@ -2470,8 +2428,6 @@ class MainWindow(QMainWindow):
 
         self.dht_status = True
         self.dht_threshold = 10
-        self.voc_status = True
-        self.voc_threshold = 5
 
         self.stack = QStackedWidget()
         self.main_page = MainPage(self.switch_page)
@@ -2505,19 +2461,9 @@ class MainWindow(QMainWindow):
         # Load theme (light/dark) from settings; default to light
         theme = self._settings.value('theme', 'light')
 
-        # Add a tiny toolbar with a dark-mode toggle
-        toolbar = self.addToolBar('Appearance')
-        toolbar.setMovable(False)
-        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.dark_action = QAction('Dark Mode', self)
-        self.dark_action.setCheckable(True)
-        self.dark_action.triggered.connect(self.toggle_dark_mode)
-        toolbar.addAction(self.dark_action)
 
         # Apply the stored or default stylesheet
         self.apply_stylesheet(theme)
-        # set the action checked state to reflect current theme
-        self.dark_action.setChecked(theme == 'dark')
 
         # Start a timer to poll serial ports and update board status
         self._port_poll_timer = QTimer(self)
